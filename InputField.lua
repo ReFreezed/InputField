@@ -375,6 +375,31 @@ local function limitScroll(field)
 	field.scrollY        = clamp(field.scrollY, 0, limitY)
 end
 
+local function scrollToCursor(field)
+	local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
+
+	do
+		local fontH    = field.font:getHeight()
+		local lineDist = math.ceil(fontH*field.font:getLineHeight())
+		local y        = (lineI - 1) * lineDist
+		field.scrollY  = clamp(field.scrollY, y-field.height+fontH, y)
+	end
+
+	if not field:isMultiline() then
+		local visibleText = field:getVisibleText()
+		local preText     = visibleText:sub(1, utf8GetEndOffset(visibleText, field.cursorPosition))
+		local x           = field.font:getWidth(preText)
+		field.scrollX     = clamp(field.scrollX, x-field.width, x)
+
+	elseif field.type == "multinowrap" then
+		local preText = line:sub(1, utf8GetEndOffset(line, posOnLine))
+		local x       = field.font:getWidth(preText)
+		field.scrollX = clamp(field.scrollX, x-field.width, x)
+	end
+
+	limitScroll(field)
+end
+
 
 
 local function applyFilter(field, s)
@@ -448,6 +473,7 @@ local function undoEdit(field)
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, -1)
+	scrollToCursor(field)
 end
 
 local function redoEdit(field)
@@ -455,6 +481,7 @@ local function redoEdit(field)
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, 1)
+	scrollToCursor(field)
 end
 
 
@@ -558,6 +585,7 @@ function InputField.setCursor(field, pos, selSideAnchor)
 	field.selectionEnd   = math.max(selStart, selEnd)
 
 	field:resetBlinking()
+	scrollToCursor(field)
 end
 
 -- moveCursor( amount [, selectionSideToAnchor:SelectionSide ] )
@@ -654,6 +682,7 @@ function InputField.setSelection(field, from, to, cursorAlign)
 	field.cursorPosition = (cursorAlign == "left") and from or to
 
 	field:resetBlinking()
+	scrollToCursor(field)
 end
 
 function InputField.selectAll(field)
@@ -807,6 +836,7 @@ do
 
 		pushHistory(field, "insert")
 		field:resetBlinking()
+		scrollToCursor(field)
 	end
 
 	-- Insert text at cursor position
@@ -830,6 +860,7 @@ do
 		if newText == "" then
 			pushHistory(field, "remove")
 			field:resetBlinking()
+			scrollToCursor(field)
 		else
 			insertText(field, newText)
 		end
@@ -892,47 +923,26 @@ local MOUSE_SCROLL_SPEED_Y = 8
 
 -- update( deltaTime )
 function InputField.update(field, dt)
-	-- Update scrolling.
-	local mx         = field.mouseScrollX
-	local my         = field.mouseScrollY
-	local oldScrollX = field.scrollX
-	local oldScrollY = field.scrollY
-	local scrollX    = oldScrollX
-	local scrollY    = oldScrollY
-	local w          = field.width
-	local h          = field.height
+	if field.mouseScrollX then
+		local mx         = field.mouseScrollX
+		local my         = field.mouseScrollY
+		local oldScrollX = field.scrollX
+		local oldScrollY = field.scrollY
+		local scrollX    = oldScrollX
+		local scrollY    = oldScrollY
+		local w          = field.width
+		local h          = field.height
 
-	if mx then
 		scrollX = (mx < 0 and scrollX+MOUSE_SCROLL_SPEED_X*mx*dt) or (mx > w and scrollX+MOUSE_SCROLL_SPEED_X*(mx-w)*dt) or (scrollX)
 		scrollY = (my < 0 and scrollY+MOUSE_SCROLL_SPEED_Y*my*dt) or (my > h and scrollY+MOUSE_SCROLL_SPEED_Y*(my-h)*dt) or (scrollY)
 
-	else
-		local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
+		field.scrollX = scrollX
+		field.scrollY = scrollY
+		limitScroll(field)
 
-		local fontH    = field.font:getHeight()
-		local lineDist = math.ceil(fontH*field.font:getLineHeight())
-		local y        = (lineI - 1) * lineDist
-		scrollY        = clamp(scrollY, y-h+fontH, y)
-
-		if not field:isMultiline() then
-			local visibleText = field:getVisibleText()
-			local preText     = visibleText:sub(1, utf8GetEndOffset(visibleText, field.cursorPosition))
-			local x           = field.font:getWidth(preText)
-			scrollX           = clamp(scrollX, x-w, x)
-
-		elseif field.type == "multinowrap" then
-			local preText = line:sub(1, utf8GetEndOffset(line, posOnLine))
-			local x       = field.font:getWidth(preText)
-			scrollX       = clamp(scrollX, x-w, x)
+		if not (scrollX == oldScrollX and scrollY == oldScrollY) then
+			field:mousemoved(mx, my) -- This should only update selection stuff.
 		end
-	end
-
-	field.scrollX = scrollX
-	field.scrollY = scrollY
-	limitScroll(field)
-
-	if mx and not (field.scrollX == oldScrollX and field.scrollY == oldScrollY) then
-		field:mousemoved(mx, my) -- This should only update selection stuff.
 	end
 end
 
@@ -999,13 +1009,18 @@ end
 function InputField.mousemoved(field, mx, my)
 	if not field.mouseTextSelectionStart then  return false  end
 
-	local pos = getCursorPositionAtCoordinates(field, mx+field.scrollX, my+field.scrollY)
+	local scrollX = field.scrollX
+	local scrollY = field.scrollY
+	local pos     = getCursorPositionAtCoordinates(field, mx+field.scrollX, my+field.scrollY)
 
 	field:setSelection(
 		field.mouseTextSelectionStart,
 		pos,
 		(pos < field.mouseTextSelectionStart and "left" or "right")
 	)
+
+	field.scrollX = scrollX -- Prevent scrolling to cursor while dragging.
+	field.scrollY = scrollY
 
 	field.mouseScrollX = mx
 	field.mouseScrollY = my
@@ -1021,6 +1036,7 @@ function InputField.mousereleased(field, mx, my, mbutton)
 	field.mouseScrollX            = nil
 	field.mouseScrollY            = nil
 
+	scrollToCursor(field)
 	return true
 end
 
@@ -1168,7 +1184,6 @@ local function navigateVertically(field, dirY, anchor)
 	local pos      = getCursorPositionAtX(field.font, newLine, targetX)
 
 	field:setCursor(newLinePos1+pos-1, anchorSide)
-
 	return true, false
 end
 
@@ -1204,15 +1219,20 @@ KEY_HANDLERS[""]["kpenter"] = KEY_HANDLERS[""]["return"]
 KEY_HANDLERS[""]["backspace"] = function(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
+
 	elseif field.selectionStart ~= field.selectionEnd then
 		-- void
+
 	elseif field.cursorPosition == 0 then
 		field:resetBlinking()
+		scrollToCursor(field)
 		return true, false
+
 	else
 		field.selectionStart = field.cursorPosition - 1
 		field.selectionEnd   = field.cursorPosition
 	end
+
 	field:replace("")
 	return true, true
 end
@@ -1234,15 +1254,20 @@ end
 KEY_HANDLERS[""]["delete"] = function(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
+
 	elseif field.selectionStart ~= field.selectionEnd then
 		-- void
+
 	elseif field.cursorPosition == field:getTextLength() then
 		field:resetBlinking()
+		scrollToCursor(field)
 		return true, false
+
 	else
 		field.selectionStart = field.cursorPosition
 		field.selectionEnd   = field.cursorPosition + 1
 	end
+
 	field:replace("")
 	return true, true
 end
