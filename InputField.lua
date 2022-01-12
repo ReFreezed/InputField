@@ -19,6 +19,7 @@
 	getDimensions, setDimensions, getWidth, setWidth, getHeight, setHeight
 	getFilter, setFilter
 	getFont, setFont
+	getMouseScrollSpeed, getMouseScrollSpeedX, getMouseScrollSpeedY, setMouseScrollSpeed, setMouseScrollSpeedX, setMouseScrollSpeedY
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
@@ -82,10 +83,6 @@ local function isInteger(v)
 	return (type(v) == "number" and v == math.floor(v))
 end
 
--- local function isFiniteNumber(v)
--- 	return (type(v) == "number" and v ~= 1/0 and v ~= -1/0 and v == v)
--- end
-
 
 
 local function utf8GetEndOffset(line, pos)
@@ -136,7 +133,7 @@ do
 		return set
 	end
 
-	local PUNCTUATION = "!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~"; PUNCTUATION = newSet{ PUNCTUATION:byte(1, #PUNCTUATION) }
+	local PUNCTUATION = "!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~"; PUNCTUATION = newSet{ PUNCTUATION:byte(1, #PUNCTUATION) } -- @Incomplete: Unicode punctuation.
 	local WHITESPACE  = newSet{ 9,10,11,12,13,32 } -- Horizontal tab, line feed, vertical tab, form feed, carriage return, space.  @Incomplete: Unicode whitespace.
 
 	local function getCodepointCharType(c)
@@ -145,38 +142,49 @@ do
 		    or                    "word"
 	end
 
-	function getNextWordBound(s, pos, dirNum)
-		assert(type(s) == "string")
-		assert(dirNum == 1 or dirNum == -1)
+	local codepoints = {}
+
+	function getNextWordBound(s, pos, direction)
+		assert(type(s)   == "string")
+		assert(direction == 1 or direction == -1)
 		assert(isInteger(pos))
 
-		local codepoints = {utf8.codepoint(s, 1, #s)} -- @Memory: Don't create a new table every time we get here!
-		pos              = clamp(pos, 0, #codepoints)
+		local len = 0
 
-		if dirNum < 0 then  pos = pos+1  end
+		for _, cp in utf8.codes(s) do
+			len             = len + 1
+			codepoints[len] = cp
+		end
+		for i = len+1, #codepoints do
+			codepoints[i] = nil
+		end
+
+		pos = clamp(pos, 0, len)
+		if direction < 0 then  pos = pos+1  end
 
 		while true do
-			pos = pos+dirNum
+			pos = pos + direction
 
 			-- Check for end of string.
 			local prevC = codepoints[pos]
-			local nextC = codepoints[pos+dirNum]
+			local nextC = codepoints[pos+direction]
+
 			if not (prevC and nextC) then
-				pos = pos+dirNum
+				pos = pos + direction
 				break
 			end
 
 			-- Check for word bound.
 			local prevType = getCodepointCharType(prevC)
 			local nextType = getCodepointCharType(nextC)
+
 			if nextType ~= prevType and not (nextType ~= "whitespace" and prevType == "whitespace") then
-				if dirNum < 0 then  pos = pos-1  end
+				if direction < 0 then  pos = pos-1  end
 				break
 			end
-
 		end
 
-		return clamp(pos, 0, #codepoints)
+		return clamp(pos, 0, len)
 	end
 end
 
@@ -266,7 +274,7 @@ local function getCursorPositionAtX(font, line, x)
 
 	while posL < posR do
 		local pos      = math.floor((posL+posR)/2)
-		local linePart = line:sub(1, utf8GetEndOffset(line, pos)) -- @Memory
+		local linePart = line:sub(1, utf8GetEndOffset(line, pos)) -- @Memory (We could maybe use font:getKerning() in LÖVE 11.4+ to traverse one character at a time. Might be slower though.)
 
 		local dx = x - font:getWidth(linePart)
 		if dx == 0 then  return pos  end
@@ -504,6 +512,9 @@ local function newInputField(text, fieldType)
 	local field = setmetatable({
 		type = fieldType,
 
+		mouseScrollSpeedX = 6.0, -- Per pixel per second.
+		mouseScrollSpeedY = 8.0,
+
 		blinkTimer = 0.00,
 
 		cursorPosition = 0,
@@ -614,6 +625,8 @@ function InputField.setFont(field, font)
 
 	field.font            = font
 	field.lastWrappedText = "\0" -- Make sure wrappedText updates.
+
+	limitScroll(field)
 end
 
 
@@ -658,6 +671,29 @@ function InputField.getScrollLimits(field)
 
 	return (field.type == "multiwrap") and 0 or math.max((field.wrappedWidth                   ) - field.width,  0),
 	       (not field:isMultiline()  ) and 0 or math.max(((#field.wrappedText-1)*lineDist+fontH) - field.height, 0)
+end
+
+
+
+function InputField.getMouseScrollSpeed()
+	return field.mouseScrollSpeedX, field.mouseScrollSpeedY
+end
+function InputField.getMouseScrollSpeedX()
+	return field.mouseScrollSpeedX
+end
+function InputField.getMouseScrollSpeedY()
+	return field.mouseScrollSpeedY
+end
+
+function InputField.setMouseScrollSpeed(speedX, speedY)
+	field.mouseScrollSpeedX = math.max(speedX, .000001)
+	field.mouseScrollSpeedY = math.max(speedY, .000001)
+end
+function InputField.setMouseScrollSpeedX(speedX)
+	field.mouseScrollSpeedX = math.max(speedX, .000001)
+end
+function InputField.setMouseScrollSpeedY(speedY)
+	field.mouseScrollSpeedY = math.max(speedY, .000001)
 end
 
 
@@ -729,7 +765,7 @@ function InputField.setText(field, text, replaceLastHistoryEntry)
 end
 
 function InputField.getVisibleText(field)
-	return (field.type == "password") and ("*"):rep(field:getTextLength()) or field.text
+	return (field.type == "password") and ("*"):rep(field:getTextLength()) or field.text -- @Speed: Maybe cache the repeated text.
 end
 
 
@@ -770,6 +806,8 @@ function InputField.setDimensions(field, w, h)
 	field.width           = w
 	field.height          = h
 	field.lastWrappedText = "\0" -- Make sure wrappedText updates.
+
+	limitScroll(field)
 end
 
 
@@ -783,6 +821,8 @@ function InputField.setWidth(field, w)
 
 	field.width           = w
 	field.lastWrappedText = "\0" -- Make sure wrappedText updates.
+
+	limitScroll(field)
 end
 
 
@@ -792,7 +832,11 @@ function InputField.getHeight(field)
 end
 
 function InputField.setHeight(field, h)
+	if field.height == h then  return  end
+
 	field.height = h -- Note: wrappedText does not need to update because of this change.
+
+	limitScroll(field)
 end
 
 
@@ -830,7 +874,7 @@ do
 		local iRight = utf8.offset(text, pos+1)
 
 		field.text           = text:sub(1, iRight-1) .. newText .. text:sub(iRight)
-		field.cursorPosition = pos+utf8.len(newText)
+		field.cursorPosition = pos + utf8.len(newText)
 		field.selectionStart = field.cursorPosition
 		field.selectionEnd   = field.cursorPosition
 
@@ -917,10 +961,6 @@ end
 
 
 
--- @Incomplete: Make these into settings.
-local MOUSE_SCROLL_SPEED_X = 6
-local MOUSE_SCROLL_SPEED_Y = 8
-
 -- update( deltaTime )
 function InputField.update(field, dt)
 	if field.mouseScrollX then
@@ -933,8 +973,8 @@ function InputField.update(field, dt)
 		local w          = field.width
 		local h          = field.height
 
-		scrollX = (mx < 0 and scrollX+MOUSE_SCROLL_SPEED_X*mx*dt) or (mx > w and scrollX+MOUSE_SCROLL_SPEED_X*(mx-w)*dt) or (scrollX)
-		scrollY = (my < 0 and scrollY+MOUSE_SCROLL_SPEED_Y*my*dt) or (my > h and scrollY+MOUSE_SCROLL_SPEED_Y*(my-h)*dt) or (scrollY)
+		scrollX = (mx < 0 and scrollX+field.mouseScrollSpeedX*mx*dt) or (mx > w and scrollX+field.mouseScrollSpeedX*(mx-w)*dt) or (scrollX)
+		scrollY = (my < 0 and scrollY+field.mouseScrollSpeedY*my*dt) or (my > h and scrollY+field.mouseScrollSpeedY*(my-h)*dt) or (scrollY)
 
 		field.scrollX = scrollX
 		field.scrollY = scrollY
@@ -1417,8 +1457,8 @@ local function nextSelection(selections, i)
 
 	local posOnLine1    = selections[3*i-1]
 	local posOnLine2    = selections[3*i  ]
-	local preText       = line:sub(1, utf8.offset(line, posOnLine1)-1)
-	local preAndMidText = line:sub(1, utf8GetEndOffset(line, posOnLine2))
+	local preText       = line:sub(1, utf8.offset(line, posOnLine1)-1) -- @Speed @Memory
+	local preAndMidText = line:sub(1, utf8GetEndOffset(line, posOnLine2)) -- @Speed @Memory
 
 	local x1 = font:getWidth(preText)
 	local x2 = font:getWidth(preAndMidText) -- @Polish: Handle kerning on the right end of the selection.
@@ -1439,6 +1479,7 @@ local function nextSelection(selections, i)
 end
 
 -- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection( )
+-- Warning: This function may chew through lots of memory if many lines are selected!
 function InputField.eachSelection(field)
 	if field.selectionStart == field.selectionEnd then  return noop  end
 
@@ -1448,7 +1489,7 @@ function InputField.eachSelection(field)
 	local   endLine,   endPosOnLine,   endLineI,   endLinePos1,   endLinePos2 = getLineInfoAtPosition(field, field.selectionEnd)
 
 	-- Note: We include selections that are empty.
-	local selections = {field=field, lineOffset=startLineI-2, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]} -- @Memory: Don't create new tables every time.
+	local selections = {field=field, lineOffset=startLineI-2, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]} -- @Memory: Don't create new tables every time!
 
 	if startLineI == endLineI then
 		table.insert(selections, startLine)

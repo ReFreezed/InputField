@@ -97,6 +97,8 @@ end
 
 
 
+local smallFont = LG.newFont(12)
+
 function love.draw()
 	LG.clear(.2, .2, .2, 1)
 
@@ -158,6 +160,13 @@ function love.draw()
 	LG.setColor(.7, .7, .7)
 	LG.rectangle("fill", FIELD_OUTER_X+FIELD_OUTER_WIDTH, FIELD_OUTER_Y+barY,  SCROLLBAR_WIDTH, barHeight) -- Vertical scrollbar.
 	LG.rectangle("fill", FIELD_OUTER_X+barX, FIELD_OUTER_Y+FIELD_OUTER_HEIGHT, barWidth, SCROLLBAR_WIDTH ) -- Horizontal scrollbar.
+
+	--
+	-- Stats.
+	--
+	LG.setFont(smallFont)
+	LG.setColor(1, 1, 1, .5)
+	LG.print(("Memory: %.2f MB"):format(collectgarbage"count"/1024), 0, LG.getHeight()-smallFont:getHeight())
 end
 
 
