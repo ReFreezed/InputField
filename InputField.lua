@@ -6,8 +6,13 @@
 --=
 --==============================================================
 
-	-- Constructors:
-	InputField
+1. Functions
+2. Enums
+3. Basic usage
+
+
+1. Functions
+----------------------------------------------------------------
 
 	-- Settings:
 	getDimensions, getWidth, getHeight, setDimensions, setWidth, setHeight
@@ -26,30 +31,82 @@
 
 	-- Other:
 	clearHistory
-	eachTextLine, eachSelection
+	eachVisibleLine, eachSelection
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
+	getCursorLayout
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
 	getText, setText, getVisibleText
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
-	getTextOffset, getCursorOffset
+	getTextOffset
 	insert, replace
 	release
 
+
+2. Enums
 ----------------------------------------------------------------
 
-	Enums:
+	InputFieldType
+		"normal"      -- Simple single-line input.
+		"password"    -- Single-line input where all characters are obscured.
+		"multiwrap"   -- Multi-line input where text wraps by the width of the field.
+		"multinowrap" -- Multi-line input with no wrapping.
 
 	SelectionSide
-	- "start": The start (left side) of the text selection
-	- "end":   The end (right side) of the text selection
+		"start" -- The start (left side) of the text selection.
+		"end"   -- The end (right side) of the text selection.
 
 	TextCursorAlignment
-	- "left":  Align cursor to the left
-	- "right": Align cursor to the right
+		"left"  -- Align cursor to the left.
+		"right" -- Align cursor to the right.
+
+
+3. Basic usage
+----------------------------------------------------------------
+
+	local InputField = require("InputField")
+	local field      = InputField("Initial text.")
+
+	local fieldX = 80
+	local fieldY = 50
+
+	love.keyboard.setKeyRepeat(true)
+
+	function love.keypressed(key, scancode, isRepeat)
+		field:keypressed(key, isRepeat)
+	end
+	function love.textinput(text)
+		field:textinput(text)
+	end
+
+	function love.mousepressed(mx, my, mbutton, pressCount)
+		field:mousepressed(mx-fieldX, my-fieldY, mbutton, pressCount)
+	end
+	function love.mousemoved(mx, my)
+		field:mousemoved(mx-fieldX, my-fieldY)
+	end
+	function love.mousereleased(mx, my, mbutton)
+		field:mousereleased(mx-fieldX, my-fieldY, mbutton)
+	end
+
+	function love.draw()
+		love.graphics.setColor(0, 0, 1)
+		for _, x, y, w, h in field:eachSelection() do
+			love.graphics.rectangle("fill", fieldX+x, fieldY+y, w, h)
+		end
+
+		love.graphics.setColor(1, 1, 1)
+		for _, text, x, y in field:eachVisibleLine() do
+			love.graphics.print(text, fieldX+x, fieldY+y)
+		end
+
+		local x, y, h = field:getCursorLayout()
+		love.graphics.rectangle("fill", fieldX+x, fieldY+y, 1, h)
+	end
+
 
 --============================================================]]
 
@@ -506,8 +563,7 @@ end
 
 
 
--- InputField( [ initialText="", fieldType="normal" ] )
--- fieldType = "normal" | "password" | "multiwrap" | "multinowrap"
+-- InputField( [ initialText="", type:InputFieldType="normal" ] )
 local function newInputField(text, fieldType)
 	fieldType = fieldType or "normal"
 
@@ -523,7 +579,7 @@ local function newInputField(text, fieldType)
 
 		doubleClickMaxDelay = 0.40, -- Only used if 'pressCount' is not supplied to mousepressed().
 
-		blinkTimer = 0.00,
+		blinkTimer = LT.getTime(),
 
 		cursorPosition = 0,
 		selectionStart = 0,
@@ -576,22 +632,25 @@ end
 
 
 
+-- phase = field:getBlinkPhase( )
+-- Get current phase for an animated cursor.
 function InputField.getBlinkPhase(field)
 	return LT.getTime() - field.blinkTimer
 end
 
+-- field:resetBlinking( )
 function InputField.resetBlinking(field)
 	field.blinkTimer = LT.getTime()
 end
 
 
 
--- position = getCursor( )
+-- position = field:getCursor( )
 function InputField.getCursor(field)
 	return field.cursorPosition
 end
 
--- setCursor( position [, selectionSideToAnchor:SelectionSide ] )
+-- field:setCursor( position [, selectionSideToAnchor:SelectionSide=none ] )
 function InputField.setCursor(field, pos, selSideAnchor)
 	finilizeHistoryGroup(field)
 
@@ -607,29 +666,33 @@ function InputField.setCursor(field, pos, selSideAnchor)
 	scrollToCursor(field)
 end
 
--- moveCursor( amount [, selectionSideToAnchor:SelectionSide ] )
+-- field:moveCursor( amount [, selectionSideToAnchor:SelectionSide=none ] )
 function InputField.moveCursor(field, amount, selSideAnchor)
 	field:setCursor(field.cursorPosition+amount, selSideAnchor)
 end
 
--- side:SelectionSide = getCursorSelectionSide( )
+-- side:SelectionSide = field:getCursorSelectionSide( )
 function InputField.getCursorSelectionSide(field)
 	return (field.cursorPosition < field.selectionEnd and "start" or "end")
 end
 
--- side:SelectionSide = getAnchorSelectionSide( )
+-- side:SelectionSide = field:getAnchorSelectionSide( )
 function InputField.getAnchorSelectionSide(field)
 	return (field.cursorPosition < field.selectionEnd and "end" or "start")
 end
 
 
 
+-- font = field:getFont( )
 function InputField.getFont(field)
 	return field.font
 end
 
+-- field:setFont( font )
 function InputField.setFont(field, font)
 	if field.font == font then  return  end
+
+	if not font then  error("Missing font argument.", 2)  end
 
 	field.font            = font
 	field.lastWrappedText = "\0" -- Make sure wrappedText updates.
@@ -639,6 +702,9 @@ end
 
 
 
+-- scrollX, scrollY = field:getScroll( )
+-- scrollX = field:getScrollX( )
+-- scrollY = field:getScrollY( )
 function InputField.getScroll(field)
 	return field.scrollX, field.scrollY
 end
@@ -649,6 +715,9 @@ function InputField.getScrollY(field)
 	return field.scrollY
 end
 
+-- field:setScroll( scrollX, scrollY )
+-- field:setScrollX( scrollX )
+-- field:setScrollY( scrollY )
 function InputField.setScroll(field, scrollX, scrollY)
 	field.scrollX = scrollX
 	field.scrollY = scrollY
@@ -663,6 +732,7 @@ function InputField.setScrollY(field, scrollY)
 	limitScroll(field)
 end
 
+-- field:scroll( deltaX, deltaY )
 function InputField.scroll(field, dx, dy)
 	field.scrollX = field.scrollX + dx
 	field.scrollY = field.scrollY + dy
@@ -671,6 +741,7 @@ end
 
 
 
+-- limitX, limitY = field:getScrollLimits( )
 function InputField.getScrollLimits(field)
 	updateWrap(field)
 
@@ -683,6 +754,9 @@ end
 
 
 
+-- speedX, speedY = field:getMouseScrollSpeed( )
+-- speedX = field:getMouseScrollSpeedX( )
+-- speedY = field:getMouseScrollSpeedY( )
 function InputField.getMouseScrollSpeed(field)
 	return field.mouseScrollSpeedX, field.mouseScrollSpeedY
 end
@@ -693,6 +767,9 @@ function InputField.getMouseScrollSpeedY(field)
 	return field.mouseScrollSpeedY
 end
 
+-- field:setMouseScrollSpeed( speedX, speedY )
+-- field:setMouseScrollSpeedX( speedX )
+-- field:setMouseScrollSpeedY( speedY )
 function InputField.setMouseScrollSpeed(field, speedX, speedY)
 	field.mouseScrollSpeedX = math.max(speedX, 0)
 	field.mouseScrollSpeedY = math.max(speedY, 0)
@@ -706,22 +783,24 @@ end
 
 
 
+-- delay = field:getDoubleClickMaxDelay( )
 function InputField.getDoubleClickMaxDelay(field)
 	return field.doubleClickMaxDelay
 end
 
+-- field:setDoubleClickMaxDelay( delay )
 function InputField.setDoubleClickMaxDelay(field, delay)
 	field.doubleClickMaxDelay = math.max(delay, 0)
 end
 
 
 
--- from, to = getSelection( )
+-- fromPosition, toPosition = field:getSelection( )
 function InputField.getSelection(field)
 	return field.selectionStart, field.selectionEnd
 end
 
--- setSelection( from, to [, cursorAlign:TextCursorAlignment="right" ] )
+-- field:setSelection( fromPosition, toPosition [, cursorAlign:TextCursorAlignment="right" ] )
 function InputField.setSelection(field, from, to, cursorAlign)
 	finilizeHistoryGroup(field)
 
@@ -739,10 +818,12 @@ function InputField.setSelection(field, from, to, cursorAlign)
 	scrollToCursor(field)
 end
 
+-- field:selectAll( )
 function InputField.selectAll(field)
 	field:setSelection(0, field:getTextLength())
 end
 
+-- text = field:getSelectedText( )
 function InputField.getSelectedText(field)
 	local text = field.text
 	return text:sub(
@@ -751,15 +832,19 @@ function InputField.getSelectedText(field)
 	)
 end
 
+-- text = field:getSelectedVisibleText( )
 function InputField.getSelectedVisibleText(field)
 	return (field.type == "password") and ("*"):rep(field.selectionEnd-field.selectionStart) or field:getSelectedText()
 end
 
 
 
-function InputField.getText(field)  return field.text  end
+-- text = field:getText( )
+function InputField.getText(field)
+	return field.text
+end
 
--- setText( text [, replaceLastHistoryEntry=false ] )
+-- field:setText( text [, replaceLastHistoryEntry=false ] )
 function InputField.setText(field, text, replaceLastHistoryEntry)
 	text = cleanString(field, tostring(text))
 	if field.text == text then  return  end
@@ -782,26 +867,31 @@ function InputField.setText(field, text, replaceLastHistoryEntry)
 	end
 end
 
+-- text = field:getVisibleText( )
 function InputField.getVisibleText(field)
 	return (field.type == "password") and ("*"):rep(field:getTextLength()) or field.text -- @Speed: Maybe cache the repeated text.
 end
 
 
 
--- length = getTextLength( )
--- Length is number of characters in the UTF-8 text string.
+-- length = field:getTextLength( )
+-- Returns the number of characters in the UTF-8 text string.
 function InputField.getTextLength(field)
 	return utf8.len(field.text)
 end
 
 
 
+-- offsetX, offsetY = field:getTextOffset( )
 function InputField.getTextOffset(field)
 	return -math.floor(field.scrollX),
 	       -math.floor(field.scrollY)
 end
 
-function InputField.getCursorOffset(field)
+
+
+-- x, y, height = field:getCursorLayout( )
+function InputField.getCursorLayout(field)
 	local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
 
 	local preText  = line:sub(1, utf8GetEndOffset(line, posOnLine))
@@ -809,15 +899,26 @@ function InputField.getCursorOffset(field)
 	local lineDist = math.ceil(fontH*field.font:getLineHeight())
 
 	return field.font:getWidth(preText) - math.floor(field.scrollX),
-	       (lineI-1)*lineDist           - math.floor(field.scrollY)
+	       (lineI-1)*lineDist           - math.floor(field.scrollY),
+	       fontH
 end
 
 
 
+-- width, height = field:getDimensions( )
+-- width  = field:getWidth( )
+-- height = field:getHeight( )
 function InputField.getDimensions(field)
 	return field.width, field.height
 end
+function InputField.getWidth(field)
+	return field.width
+end
+function InputField.getHeight(field)
+	return field.height
+end
 
+-- field:setDimensions( width, height )
 function InputField.setDimensions(field, w, h)
 	if field.width == w and field.height == h then  return  end
 
@@ -828,12 +929,7 @@ function InputField.setDimensions(field, w, h)
 	limitScroll(field)
 end
 
-
-
-function InputField.getWidth(field)
-	return field.width
-end
-
+-- field:setWidth( width )
 function InputField.setWidth(field, w)
 	if field.width == w then  return  end
 
@@ -843,12 +939,7 @@ function InputField.setWidth(field, w)
 	limitScroll(field)
 end
 
-
-
-function InputField.getHeight(field)
-	return field.height
-end
-
+-- field:setHeight( height )
 function InputField.setHeight(field, h)
 	if field.height == h then  return  end
 
@@ -860,6 +951,7 @@ end
 
 
 
+-- width, height = field:getTextDimensions( )
 function InputField.getTextDimensions(field)
 	updateWrap(field)
 
@@ -869,18 +961,20 @@ function InputField.getTextDimensions(field)
 	return field.wrappedWidth, (#field.wrappedText-1)*lineDist+fontH
 end
 
+-- width = field:getTextWidth( )
 function InputField.getTextWidth(field)
 	updateWrap(field)
 	return field.wrappedWidth
 end
 
+-- height = field:getTextHeight( )
 function InputField.getTextHeight(field)
 	updateWrap(field)
 
 	local fontH    = field.font:getHeight()
 	local lineDist = math.ceil(fontH*field.font:getLineHeight())
 
-	return (#field.wrappedText-1)*lineDist+fontH
+	return (#field.wrappedText - 1) * lineDist + fontH
 end
 
 
@@ -901,11 +995,13 @@ do
 		scrollToCursor(field)
 	end
 
-	-- Insert text at cursor position
+	-- field:insert( text )
+	-- Insert text at cursor position.
 	function InputField.insert(field, newText)
 		insertText(field, cleanString(field, tostring(newText)))
 	end
 
+	-- field:replace( text )
 	-- Replace text selection with another text
 	function InputField.replace(field, newText)
 		newText = cleanString(field, tostring(newText))
@@ -931,20 +1027,28 @@ end
 
 
 
+-- bool = field:isFontFilteringActive( )
+-- field:setFontFilteringActive( bool )
 function InputField.isFontFilteringActive(field)          return field.fontFilteringIsActive   end
 function InputField.setFontFilteringActive(field, state)  field.fontFilteringIsActive = state  end
 
+-- bool = field:isEditable( )
+-- field:setEditable( bool )
 function InputField.isEditable(field)          return field.editingEnabled   end
 function InputField.setEditable(field, state)  field.editingEnabled = state  end
 
 
 
+-- type:InputFieldType = field:getType( )
+-- bool = field:isPassword( )
+-- bool = field:isMultiline( )
 function InputField.getType(field)      return field.type  end
 function InputField.isPassword(field)   return field.type == "password"  end
 function InputField.isMultiline(field)  return field.type == "multiwrap" or field.type == "multinowrap"  end
 
 
 
+-- filterFunction = field:getFilter( )
 function InputField.getFilter(field)
 	return field.filter
 end
@@ -963,6 +1067,7 @@ end
 
 
 
+-- field:clearHistory( )
 function InputField.clearHistory(field)
 	local history = field.editHistory
 
@@ -979,7 +1084,7 @@ end
 
 
 
--- update( deltaTime )
+-- field:update( deltaTime )
 function InputField.update(field, dt)
 	if field.mouseScrollX then
 		local mx         = field.mouseScrollX
@@ -1006,7 +1111,7 @@ end
 
 
 
--- wasHandled = mousepressed( x, y, button [, pressCount=auto ] )
+-- eventWasHandled = field:mousepressed( mouseX, mouseY, mouseButton [, pressCount=auto ] )
 function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 	if mbutton ~= 1 then  return false  end
 
@@ -1063,7 +1168,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 	return true
 end
 
--- wasHandled = mousemoved( x, y )
+-- eventWasHandled = field:mousemoved( mouseX, mouseY )
 function InputField.mousemoved(field, mx, my)
 	if not field.mouseTextSelectionStart then  return false  end
 
@@ -1085,7 +1190,7 @@ function InputField.mousemoved(field, mx, my)
 	return true
 end
 
--- wasHandled = mousereleased( x, y, button )
+-- eventWasHandled = field:mousereleased( mouseX, mouseY, mouseButton )
 function InputField.mousereleased(field, mx, my, mbutton)
 	if mbutton ~= 1                      then  return false  end
 	if not field.mouseTextSelectionStart then  return false  end
@@ -1100,6 +1205,8 @@ end
 
 
 
+-- field:release( )
+-- Release mouse buttons that are held down (i.e. stop drag-selecting).
 function InputField.release(field)
 	if field.mouseTextSelectionStart then
 		field.mouseTextSelectionStart = nil
@@ -1411,18 +1518,20 @@ KEY_HANDLERS["cs"]["z"] = function(field, isRepeat)
 end
 KEY_HANDLERS["c"]["y"] = KEY_HANDLERS["cs"]["z"]
 
--- wasHandled, wasEdited = keypressed( key, scancode, isRepeat )
-function InputField.keypressed(field, key, scancode, isRepeat)
-	local mod = getModKeys()
 
-	if KEY_HANDLERS[mod][key] then
-		return KEY_HANDLERS[mod][key](field, isRepeat)
+
+-- eventWasHandled, textWasEdited = field:keypressed( key, isRepeat )
+function InputField.keypressed(field, key, isRepeat)
+	local keyHandler = KEY_HANDLERS[getModKeys()][key]
+
+	if keyHandler then
+		return keyHandler(field, isRepeat)
 	else
 		return false, false
 	end
 end
 
--- wasHandled, wasEdited = textinput( text )
+-- eventWasHandled, textWasEdited = field:textinput( text )
 function InputField.textinput(field, text)
 	if not field.editingEnabled then  return true, false  end
 
@@ -1456,8 +1565,8 @@ local function nextLine(field, lineI)
 		fontH
 end
 
--- for index, line, lineX, lineY, lineWidth, lineHeight in field:eachTextLine( )
-function InputField.eachTextLine(field)
+-- for index, line, lineX, lineY, lineWidth, lineHeight in field:eachVisibleLine( )
+function InputField.eachVisibleLine(field)
 	updateWrap(field)
 	return nextLine, field, 0
 end

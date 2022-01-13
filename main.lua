@@ -1,7 +1,6 @@
 --
 -- InputField test project
 --
-
 local FONT_SIZE        = 20
 local FONT_LINE_HEIGHT = 1.3
 
@@ -63,7 +62,7 @@ function love.keypressed(key, scancode, isRepeat)
 	if key == "escape" then
 		love.event.quit()
 	else
-		field:keypressed(key, scancode, isRepeat)
+		field:keypressed(key, isRepeat)
 	end
 end
 
@@ -78,7 +77,7 @@ function love.mousepressed(mx, my, mbutton, pressCount)
 end
 
 function love.mousemoved(mx, my, dx, dy)
-	field:mousemoved(mx-FIELD_INNER_X, my-FIELD_INNER_Y, dx, dy)
+	field:mousemoved(mx-FIELD_INNER_X, my-FIELD_INNER_Y)
 end
 
 function love.mousereleased(mx, my, mbutton, pressCount)
@@ -120,14 +119,14 @@ function love.draw()
 	-- Text.
 	LG.setFont(theFont)
 	LG.setColor(1, 1, 1)
-	for _, lineText, lineX, lineY in field:eachTextLine() do
+	for _, lineText, lineX, lineY in field:eachVisibleLine() do
 		LG.print(lineText, FIELD_INNER_X+lineX, FIELD_INNER_Y+lineY)
 	end
 
 	-- Cursor.
 	local cursorWidth      = 2
 	local cursorHeight     = theFont:getHeight()
-	local cursorX, cursorY = field:getCursorOffset()
+	local cursorX, cursorY = field:getCursorLayout()
 	LG.setColor(1, 1, 1, ((field:getBlinkPhase()/BLINK_INTERVAL)%1 < .5 and 1 or 0))
 	LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
 
