@@ -6,13 +6,16 @@
 --=
 --==============================================================
 
-1. Functions
-2. Enums
-3. Basic usage
+	1. Functions
+	2. Enums
+	3. Basic usage
 
 
-1. Functions
-----------------------------------------------------------------
+
+	1. Functions
+	----------------------------------------------------------------
+
+	-- Search through the file for more info about each individual function.
 
 	-- Settings:
 	getDimensions, getWidth, getHeight, setDimensions, setWidth, setHeight
@@ -46,8 +49,9 @@
 	release
 
 
-2. Enums
-----------------------------------------------------------------
+
+	2. Enums
+	----------------------------------------------------------------
 
 	InputFieldType
 		"normal"      -- Simple single-line input.
@@ -64,8 +68,9 @@
 		"right" -- Align cursor to the right.
 
 
-3. Basic usage
-----------------------------------------------------------------
+
+	3. Basic usage
+	----------------------------------------------------------------
 
 	local InputField = require("InputField")
 	local field      = InputField("Initial text.")
@@ -106,6 +111,7 @@
 		local x, y, h = field:getCursorLayout()
 		love.graphics.rectangle("fill", fieldX+x, fieldY+y, 1, h)
 	end
+
 
 
 --============================================================]]
@@ -577,7 +583,7 @@ local function newInputField(text, fieldType)
 		mouseScrollSpeedX = 6.0, -- Per pixel per second.
 		mouseScrollSpeedY = 8.0,
 
-		doubleClickMaxDelay = 0.40, -- Only used if 'pressCount' is not supplied to mousepressed().
+		doubleClickMaxDelay = 0.40, -- Only used if the 'pressCount' argument isn't supplied to mousepressed().
 
 		blinkTimer = LT.getTime(),
 
@@ -789,6 +795,7 @@ function InputField.getDoubleClickMaxDelay(field)
 end
 
 -- field:setDoubleClickMaxDelay( delay )
+-- This value is only used if the 'pressCount' argument isn't supplied to mousepressed().
 function InputField.setDoubleClickMaxDelay(field, delay)
 	field.doubleClickMaxDelay = math.max(delay, 0)
 end
@@ -883,6 +890,7 @@ end
 
 
 -- offsetX, offsetY = field:getTextOffset( )
+-- Note: The coordinates are relative to the field's position.
 function InputField.getTextOffset(field)
 	return -math.floor(field.scrollX),
 	       -math.floor(field.scrollY)
@@ -891,6 +899,7 @@ end
 
 
 -- x, y, height = field:getCursorLayout( )
+-- Note: The coordinates are relative to the field's position.
 function InputField.getCursorLayout(field)
 	local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
 
@@ -1112,6 +1121,7 @@ end
 
 
 -- eventWasHandled = field:mousepressed( mouseX, mouseY, mouseButton [, pressCount=auto ] )
+-- Note: The coordinates must be relative to the field's position on the screen.
 function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 	if mbutton ~= 1 then  return false  end
 
@@ -1169,6 +1179,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 end
 
 -- eventWasHandled = field:mousemoved( mouseX, mouseY )
+-- Note: The coordinates must be relative to the field's position on the screen.
 function InputField.mousemoved(field, mx, my)
 	if not field.mouseTextSelectionStart then  return false  end
 
@@ -1191,6 +1202,7 @@ function InputField.mousemoved(field, mx, my)
 end
 
 -- eventWasHandled = field:mousereleased( mouseX, mouseY, mouseButton )
+-- Note: The coordinates must be relative to the field's position on the screen.
 function InputField.mousereleased(field, mx, my, mbutton)
 	if mbutton ~= 1                      then  return false  end
 	if not field.mouseTextSelectionStart then  return false  end
@@ -1566,6 +1578,7 @@ local function nextLine(field, lineI)
 end
 
 -- for index, line, lineX, lineY, lineWidth, lineHeight in field:eachVisibleLine( )
+-- Note: The coordinates are relative to the field's position.
 function InputField.eachVisibleLine(field)
 	updateWrap(field)
 	return nextLine, field, 0
@@ -1606,6 +1619,7 @@ local function nextSelection(selections, i)
 end
 
 -- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection( )
+-- Note: The coordinates are relative to the field's position.
 -- Warning: This function may chew through lots of memory if many lines are selected!
 function InputField.eachSelection(field)
 	if field.selectionStart == field.selectionEnd then  return noop  end
