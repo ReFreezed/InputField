@@ -38,6 +38,7 @@
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
+	getMaxHistory, setMaxHistory
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
@@ -116,7 +117,7 @@
 
 --============================================================]]
 
-local M = {
+local InputField = {
 	_VERSION = "InputField 2.0.0-dev",
 }
 
@@ -497,15 +498,23 @@ local function pushHistory(field, group)
 	local history = field.editHistory
 	local i, state
 
+	-- Never save history for password fields.
 	if field.type == "password" then
-		-- Never save history for password fields.
 		i     = 1
 		state = history[1]
 
+	-- Update last entry if group matches.
 	elseif group and group == field.editHistoryGroup then
 		i     = field.editHistoryIndex
 		state = history[i]
 
+	-- History limit reached.
+	elseif field.editHistoryIndex >= field.editHistoryMax then
+		i          = field.editHistoryIndex
+		state      = table.remove(history, 1)
+		history[i] = state
+
+	-- Expand history.
 	else
 		i          = field.editHistoryIndex + 1
 		state      = {}
@@ -580,21 +589,18 @@ local function newInputField(text, fieldType)
 	local field = setmetatable({
 		type = fieldType,
 
-		mouseScrollSpeedX = 6.0, -- Per pixel per second.
-		mouseScrollSpeedY = 8.0,
-
-		doubleClickMaxDelay = 0.40, -- Only used if the 'pressCount' argument isn't supplied to mousepressed().
-
 		blinkTimer = LT.getTime(),
 
 		cursorPosition = 0,
 		selectionStart = 0,
 		selectionEnd   = 0,
 
+		doubleClickMaxDelay       = 0.40, -- Only used if the 'pressCount' argument isn't supplied to mousepressed().
 		doubleClickExpirationTime = 0.00,
 		doubleClickLastX          = 0.0,
 		doubleClickLastY          = 0.0,
 
+		editHistoryMax   = 100,
 		editHistory      = {},
 		editHistoryIndex = 1,
 		editHistoryGroup = nil, -- nil | "insert" | "remove"
@@ -602,18 +608,23 @@ local function newInputField(text, fieldType)
 		font                  = require"love.graphics".getFont(),
 		fontFilteringIsActive = false,
 
+		filter = nil,
+
+		mouseScrollSpeedX       = 6.0, -- Per pixel per second.
+		mouseScrollSpeedY       = 8.0,
 		mouseScrollX            = nil,
 		mouseScrollY            = nil,
 		mouseTextSelectionStart = nil,
 
 		editingEnabled = true,
 
-		filter  = nil,
 		scrollX = 0.0,
 		scrollY = 0.0,
-		text    = "",
-		width   = 1/0,
-		height  = 1/0,
+
+		text = "",
+
+		width  = 1/0,
+		height = 1/0,
 
 		-- These are updated by updateWrap():
 		lastWrappedText = "",
@@ -1036,8 +1047,12 @@ end
 
 
 
+--
 -- bool = field:isFontFilteringActive( )
 -- field:setFontFilteringActive( bool )
+--
+-- Filter out characters that the font doesn't have.
+--
 function InputField.isFontFilteringActive(field)          return field.fontFilteringIsActive   end
 function InputField.setFontFilteringActive(field, state)  field.fontFilteringIsActive = state  end
 
@@ -1067,6 +1082,8 @@ end
 -- setFilter( nil ) -- Remove filter.
 -- removeCharacter = filterFunction( character )
 --
+-- Filter out entered characters.
+--
 -- Note: The filter is only used for input functions, like textinput().
 -- setText() etc. are unaffected (unlike with font filtering).
 --
@@ -1085,6 +1102,23 @@ function InputField.clearHistory(field)
 
 	field.editHistoryGroup = nil
 	field.editHistoryIndex = 1
+end
+
+
+
+-- maxHistory = field:getMaxHistory( )
+function InputField.getMaxHistory(field)
+	return field.editHistoryMax
+end
+
+-- field:setMaxHistory( maxHistory )
+-- Limit entry count for the undo/redo history.
+function InputField.setMaxHistory(field, maxHistory)
+	maxHistory = math.max(maxHistory, 1)
+	if maxHistory == field.editHistoryMax then  return  end
+
+	field:clearHistory()
+	field.editHistoryMax = maxHistory
 end
 
 
@@ -1663,7 +1697,7 @@ end
 --==============================================================
 --==============================================================
 
-return setmetatable(M, {__call=function(M, ...)
+return setmetatable(InputField, {__call=function(InputField, ...)
 	return newInputField(...)
 end})
 
