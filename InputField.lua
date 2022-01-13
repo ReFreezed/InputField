@@ -1,25 +1,34 @@
 --[[============================================================
 --=
---=  InputField class v2.0-dev (for LÖVE 0.10.2+)
+--=  InputField v2.0-dev (for LÖVE 0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=
 --==============================================================
 
+	-- Constructors:
 	InputField
 
+	-- Settings:
+	getDimensions, getWidth, getHeight, setDimensions, setWidth, setHeight
+	getDoubleClickMaxDelay, setDoubleClickMaxDelay
+	getFilter, setFilter
+	getFont, setFont
+	getMouseScrollSpeed, getMouseScrollSpeedX, getMouseScrollSpeedY, setMouseScrollSpeed, setMouseScrollSpeedX, setMouseScrollSpeedY
+	getType, isPassword, isMultiline
+	isEditable, setEditable
+	isFontFilteringActive, setFontFilteringActive
+
+	-- Events:
 	update
 	mousepressed, mousemoved, mousereleased
 	keypressed, textinput
 
+	-- Other:
 	clearHistory
 	eachTextLine, eachSelection
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
-	getDimensions, setDimensions, getWidth, setWidth, getHeight, setHeight
-	getFilter, setFilter
-	getFont, setFont
-	getMouseScrollSpeed, getMouseScrollSpeedX, getMouseScrollSpeedY, setMouseScrollSpeed, setMouseScrollSpeedX, setMouseScrollSpeedY
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
@@ -27,10 +36,7 @@
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
 	getTextOffset, getCursorOffset
-	getType, isPassword, isMultiline
 	insert, replace
-	isEditable, setEditable
-	isFontFilteringActive, setFontFilteringActive
 	release
 
 ----------------------------------------------------------------
@@ -47,9 +53,9 @@
 
 --============================================================]]
 
-
-
-local DOUBLE_CLICK_MAX_DELAY = 0.40 -- Used if pressCount is not supplied to mousepressed().
+local M = {
+	_VERSION = "InputField 2.0.0-dev",
+}
 
 
 
@@ -515,6 +521,8 @@ local function newInputField(text, fieldType)
 		mouseScrollSpeedX = 6.0, -- Per pixel per second.
 		mouseScrollSpeedY = 8.0,
 
+		doubleClickMaxDelay = 0.40, -- Only used if 'pressCount' is not supplied to mousepressed().
+
 		blinkTimer = 0.00,
 
 		cursorPosition = 0,
@@ -675,25 +683,35 @@ end
 
 
 
-function InputField.getMouseScrollSpeed()
+function InputField.getMouseScrollSpeed(field)
 	return field.mouseScrollSpeedX, field.mouseScrollSpeedY
 end
-function InputField.getMouseScrollSpeedX()
+function InputField.getMouseScrollSpeedX(field)
 	return field.mouseScrollSpeedX
 end
-function InputField.getMouseScrollSpeedY()
+function InputField.getMouseScrollSpeedY(field)
 	return field.mouseScrollSpeedY
 end
 
-function InputField.setMouseScrollSpeed(speedX, speedY)
-	field.mouseScrollSpeedX = math.max(speedX, .000001)
-	field.mouseScrollSpeedY = math.max(speedY, .000001)
+function InputField.setMouseScrollSpeed(field, speedX, speedY)
+	field.mouseScrollSpeedX = math.max(speedX, 0)
+	field.mouseScrollSpeedY = math.max(speedY, 0)
 end
-function InputField.setMouseScrollSpeedX(speedX)
-	field.mouseScrollSpeedX = math.max(speedX, .000001)
+function InputField.setMouseScrollSpeedX(field, speedX)
+	field.mouseScrollSpeedX = math.max(speedX, 0)
 end
-function InputField.setMouseScrollSpeedY(speedY)
-	field.mouseScrollSpeedY = math.max(speedY, .000001)
+function InputField.setMouseScrollSpeedY(field, speedY)
+	field.mouseScrollSpeedY = math.max(speedY, 0)
+end
+
+
+
+function InputField.getDoubleClickMaxDelay(field)
+	return field.doubleClickMaxDelay
+end
+
+function InputField.setDoubleClickMaxDelay(field, delay)
+	field.doubleClickMaxDelay = math.max(delay, 0)
 end
 
 
@@ -1008,7 +1026,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 			)
 		end
 
-		field.doubleClickExpirationTime = isDoubleClick and 0 or time+DOUBLE_CLICK_MAX_DELAY
+		field.doubleClickExpirationTime = isDoubleClick and 0 or time+field.doubleClickMaxDelay
 		field.doubleClickLastX          = mx
 		field.doubleClickLastY          = my
 
@@ -1522,7 +1540,9 @@ end
 --==============================================================
 --==============================================================
 
-return newInputField
+return setmetatable(M, {__call=function(M, ...)
+	return newInputField(...)
+end})
 
 --==============================================================
 --=
