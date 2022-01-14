@@ -133,7 +133,7 @@ do
 	assertValue(field:getSelectedVisibleText(), "foobar")
 
 	field:mousepressed (0,    0, 1, 1)
-	field:release      ()
+	field:releaseMouse ()
 	field:mousemoved   (1000, 0)
 	field:mousereleased(1000, 0, 1)
 	assertValue(field:getSelectedVisibleText(), "")

@@ -46,7 +46,8 @@
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
 	getTextOffset
-	release
+	releaseMouse
+	reset
 
 
 
@@ -500,11 +501,11 @@ end
 
 
 local function applyFilter(field, s)
-	local filter = field.filter
-	if not filter then  return s  end
+	local filterFunc = field.filterFunction
+	if not filterFunc then  return s  end
 
 	s = s:gsub(utf8.charpattern, function(c)
-		if filter(c) then  return ""  end
+		if filterFunc(c) then  return ""  end
 	end)
 
 	return s
@@ -631,7 +632,7 @@ local function newInputField(text, fieldType)
 		font                  = require"love.graphics".getFont(),
 		fontFilteringIsActive = false,
 
-		filter = nil,
+		filterFunction = nil,
 
 		mouseScrollSpeedX       = 6.0, -- Per pixel per second.
 		mouseScrollSpeedY       = 8.0,
@@ -885,8 +886,8 @@ function InputField.getText(field)
 	return field.text
 end
 
--- field:setText( text [, replaceLastHistoryEntry=false ] )
-function InputField.setText(field, text, replaceLastHistoryEntry)
+-- field:setText( text )
+function InputField.setText(field, text)
 	text = cleanString(field, tostring(text))
 	if field.text == text then  return  end
 
@@ -897,15 +898,7 @@ function InputField.setText(field, text, replaceLastHistoryEntry)
 	field.selectionStart = math.min(len, field.selectionStart)
 	field.selectionEnd   = math.min(len, field.selectionEnd)
 
-	if replaceLastHistoryEntry then
-		local state          = field.editHistory[field.editHistoryIndex]
-		state.text           = field.text
-		state.cursorPosition = field.cursorPosition
-		state.selectionStart = field.selectionStart
-		state.selectionEnd   = field.selectionEnd
-	else
-		pushHistory(field, nil)
-	end
+	pushHistory(field, nil)
 end
 
 -- text = field:getVisibleText( )
@@ -1054,11 +1047,23 @@ end
 
 
 
+-- field:reset( [ initialText="" ] )
+function InputField.reset(field, text)
+	field.cursorPosition = 0
+	field.selectionStart = 0
+	field.selectionEnd   = 0
+
+	field:setText(text == nil and "" or text)
+	field:clearHistory()
+end
+
+
+
 --
 -- bool = field:isFontFilteringActive( )
 -- field:setFontFilteringActive( bool )
 --
--- Filter out characters that the font doesn't have.
+-- Filter out characters that the font doesn't have glyphs for.
 --
 function InputField.isFontFilteringActive(field)          return field.fontFilteringIsActive   end
 function InputField.setFontFilteringActive(field, state)  field.fontFilteringIsActive = state  end
@@ -1081,7 +1086,7 @@ function InputField.isMultiline(field)  return field.type == "multiwrap" or fiel
 
 -- filterFunction = field:getFilter( )
 function InputField.getFilter(field)
-	return field.filter
+	return field.filterFunction
 end
 
 --
@@ -1091,11 +1096,11 @@ end
 --
 -- Filter out entered characters.
 --
--- Note: The filter is only used for input functions, like textinput().
--- setText() etc. are unaffected (unlike with font filtering).
+-- Note: The filter is only applied in text input events, like textinput().
+-- Functions like setText() are unaffected (unlike with font filtering).
 --
-function InputField.setFilter(field, filter)
-	field.filter = filter
+function InputField.setFilter(field, filterFunc)
+	field.filterFunction = filterFunc
 end
 
 
@@ -1258,9 +1263,9 @@ end
 
 
 
--- field:release( )
+-- field:releaseMouse( )
 -- Release mouse buttons that are held down (i.e. stop drag-selecting).
-function InputField.release(field)
+function InputField.releaseMouse(field)
 	if field.mouseTextSelectionStart then
 		field.mouseTextSelectionStart = nil
 		field.mouseScrollX            = nil
@@ -1392,16 +1397,23 @@ local function navigateVertically(field, dirY, anchor)
 		newLine, newPosOnLine, newLineI, newLinePos1, newLinePos2 = getLineInfoAtPosition(field, oldLinePos2+1)
 	end
 
+	-- Avoid some work if we're at the start of a line.
 	if oldPosOnLine == 0 or newLine == "" then
 		field:setCursor(newLinePos1-1, anchorSide)
 		return true, false
 	end
 
-	local linePart = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
-	local targetX  = field.font:getWidth(linePart)
-	local pos      = getCursorPositionAtX(field.font, newLine, targetX)
+	local linePart  = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
+	local targetX   = field.font:getWidth(linePart)
+	local posOnLine = getCursorPositionAtX(field.font, newLine, targetX)
 
-	field:setCursor(newLinePos1+pos-1, anchorSide)
+	-- Going from the end of a long line to the end of a short soft-wrapped line would put
+	-- the cursor at the start of the previous long line or two lines down. No good!
+	if posOnLine == utf8.len(newLine) and field.softBreak[newLineI] then
+		posOnLine = posOnLine - 1
+	end
+
+	field:setCursor(newLinePos1+posOnLine-1, anchorSide)
 	return true, false
 end
 
