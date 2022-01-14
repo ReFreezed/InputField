@@ -1768,9 +1768,14 @@ end
 --==============================================================
 --==============================================================
 
-return setmetatable(InputField, {__call=function(InputField, ...)
-	return newInputField(...)
-end})
+return setmetatable(InputField, {
+
+	-- InputField( [ initialText="", type:InputFieldType="normal" ] )
+	__call = function(InputField, text, fieldType)
+		return newInputField(text, fieldType)
+	end,
+
+})
 
 --==============================================================
 --=
