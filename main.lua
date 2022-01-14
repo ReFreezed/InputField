@@ -1,5 +1,5 @@
 --
--- InputField test project
+-- InputField example program
 --
 local FONT_SIZE        = 20
 local FONT_LINE_HEIGHT = 1.3
@@ -43,13 +43,13 @@ end
 
 
 
-local theFont = LG.newFont(FONT_SIZE)
-theFont:setLineHeight(FONT_LINE_HEIGHT)
-
 io.stdout:setvbuf("no")
 io.stderr:setvbuf("no")
 
 love.keyboard.setKeyRepeat(true)
+
+local theFont = LG.newFont(FONT_SIZE)
+theFont:setLineHeight(FONT_LINE_HEIGHT)
 
 local InputField = require"InputField"
 local field      = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)

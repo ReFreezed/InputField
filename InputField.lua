@@ -42,11 +42,10 @@
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
-	getText, setText, getVisibleText
+	getText, setText, getVisibleText, insert
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
 	getTextOffset
-	insert, replace
 	release
 
 
@@ -559,6 +558,8 @@ local function undoEdit(field)
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, -1)
+
+	field:resetBlinking()
 	scrollToCursor(field)
 end
 
@@ -567,6 +568,8 @@ local function redoEdit(field)
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, 1)
+
+	field:resetBlinking()
 	scrollToCursor(field)
 end
 
@@ -999,50 +1002,34 @@ end
 
 
 
-do
-	local function insertText(field, newText)
-		local text   = field.text
-		local pos    = field.cursorPosition
-		local iRight = utf8.offset(text, pos+1)
+-- field:insert( text )
+-- Insert text at cursor, or replace selected text.
+function InputField.insert(field, newText)
+	newText = cleanString(field, tostring(newText))
 
-		field.text           = text:sub(1, iRight-1) .. newText .. text:sub(iRight)
-		field.cursorPosition = pos + utf8.len(newText)
+	local text     = field.text
+	local selStart = field.selectionStart
+	local iLeft    = utf8GetEndOffset(text, selStart)
+	local iRight   = utf8.offset(text, field.selectionEnd+1)
+
+	if newText == "" then
+		field.text           = text:sub(1, iLeft) .. text:sub(iRight)
+		field.cursorPosition = selStart
+		field.selectionEnd   = selStart
+
+		pushHistory(field, "remove")
+
+	else
+		field.text           = text:sub(1, iLeft) .. newText .. text:sub(iRight)
+		field.cursorPosition = selStart + utf8.len(newText)
 		field.selectionStart = field.cursorPosition
 		field.selectionEnd   = field.cursorPosition
 
 		pushHistory(field, "insert")
-		field:resetBlinking()
-		scrollToCursor(field)
 	end
 
-	-- field:insert( text )
-	-- Insert text at cursor position.
-	function InputField.insert(field, newText)
-		insertText(field, cleanString(field, tostring(newText)))
-	end
-
-	-- field:replace( text )
-	-- Replace text selection with another text
-	function InputField.replace(field, newText)
-		newText = cleanString(field, tostring(newText))
-
-		local text     = field.text
-		local selStart = field.selectionStart
-		local iLeft    = utf8GetEndOffset(text, selStart)
-		local iRight   = utf8.offset(text, field.selectionEnd+1)
-
-		field.text           = text:sub(1, iLeft) .. text:sub(iRight)
-		field.selectionEnd   = selStart
-		field.cursorPosition = selStart
-
-		if newText == "" then
-			pushHistory(field, "remove")
-			field:resetBlinking()
-			scrollToCursor(field)
-		else
-			insertText(field, newText)
-		end
-	end
+	field:resetBlinking()
+	scrollToCursor(field)
 end
 
 
@@ -1170,7 +1157,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 		else
 			isDoubleClick = (
 				time < field.doubleClickExpirationTime
-				and math.abs(field.doubleClickLastX-mx) <= 1
+				and math.abs(field.doubleClickLastX-mx) <= 1 -- @Incomplete: Make max distance into a setting?
 				and math.abs(field.doubleClickLastY-my) <= 1
 			)
 		end
@@ -1420,7 +1407,7 @@ KEY_HANDLERS[""]["return"] = function(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 	if not field:isMultiline()  then  return false, false  end
 
-	field:replace("\n")
+	field:insert("\n")
 	return true, true
 end
 KEY_HANDLERS[""]["kpenter"] = KEY_HANDLERS[""]["return"]
@@ -1444,7 +1431,7 @@ KEY_HANDLERS[""]["backspace"] = function(field, isRepeat)
 		field.selectionEnd   = field.cursorPosition
 	end
 
-	field:replace("")
+	field:insert("")
 	return true, true
 end
 KEY_HANDLERS["c"]["backspace"] = function(field, isRepeat)
@@ -1456,7 +1443,7 @@ KEY_HANDLERS["c"]["backspace"] = function(field, isRepeat)
 		field.cursorPosition = getNextWordBound(field:getVisibleText(), field.cursorPosition, -1)
 		field.selectionStart = field.cursorPosition
 	end
-	field:replace("")
+	field:insert("")
 	return true, true
 end
 
@@ -1479,7 +1466,7 @@ KEY_HANDLERS[""]["delete"] = function(field, isRepeat)
 		field.selectionEnd   = field.cursorPosition + 1
 	end
 
-	field:replace("")
+	field:insert("")
 	return true, true
 end
 KEY_HANDLERS["c"]["delete"] = function(field, isRepeat)
@@ -1491,7 +1478,7 @@ KEY_HANDLERS["c"]["delete"] = function(field, isRepeat)
 		field.cursorPosition = getNextWordBound(field:getVisibleText(), field.cursorPosition, 1)
 		field.selectionEnd   = field.cursorPosition
 	end
-	field:replace("")
+	field:insert("")
 	return true, true
 end
 
@@ -1522,7 +1509,7 @@ KEY_HANDLERS["c"]["x"] = function(field, isRepeat)
 	LS.setClipboardText(text)
 
 	if field.editingEnabled then
-		field:replace("")
+		field:insert("")
 		return true, true
 	else
 		field:resetBlinking()
@@ -1536,7 +1523,7 @@ KEY_HANDLERS["c"]["v"] = function(field, isRepeat)
 
 	local text = cleanString(field, LS.getClipboardText())
 	if text ~= "" then
-		field:replace(applyFilter(field, text))
+		field:insert(applyFilter(field, text))
 	end
 
 	field:resetBlinking()
@@ -1580,15 +1567,7 @@ end
 -- eventWasHandled, textWasEdited = field:textinput( text )
 function InputField.textinput(field, text)
 	if not field.editingEnabled then  return true, false  end
-
-	text = applyFilter(field, text)
-
-	if field.selectionStart ~= field.selectionEnd then
-		field:replace(text)
-	else
-		field:insert(text)
-	end
-
+	field:insert(applyFilter(field, text))
 	return true, true
 end
 
@@ -1664,7 +1643,7 @@ function InputField.eachSelection(field)
 	local   endLine,   endPosOnLine,   endLineI,   endLinePos1,   endLinePos2 = getLineInfoAtPosition(field, field.selectionEnd)
 
 	-- Note: We include selections that are empty.
-	local selections = {field=field, lineOffset=startLineI-2, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]} -- @Memory: Don't create new tables every time!
+	local selections = {field=field, lineOffset=startLineI-2, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]} -- @Speed @Memory: Don't create a new table every call!
 
 	if startLineI == endLineI then
 		table.insert(selections, startLine)
