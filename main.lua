@@ -99,6 +99,7 @@ end
 local smallFont = LG.newFont(12)
 
 function love.draw()
+	local time = love.timer.getTime()
 	LG.clear(.2, .2, .2, 1)
 
 	--
@@ -163,9 +164,14 @@ function love.draw()
 	--
 	-- Stats.
 	--
+	local text = string.format(
+		"Memory: %.2f MB\nDraw time: %.1f ms",
+		collectgarbage"count" / 1024,
+		(love.timer.getTime()-time) * 1000
+	)
 	LG.setFont(smallFont)
 	LG.setColor(1, 1, 1, .5)
-	LG.print(("Memory: %.2f MB"):format(collectgarbage"count"/1024), 0, LG.getHeight()-smallFont:getHeight())
+	LG.print(text, 0, LG.getHeight()-2*smallFont:getHeight())
 end
 
 

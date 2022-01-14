@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v2.0-dev (for LÖVE 0.10.2+)
+--=  InputField v3.0 (for LÖVE 0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=
@@ -34,7 +34,7 @@
 
 	-- Other:
 	clearHistory
-	eachVisibleLine, eachSelection
+	eachVisibleLine, eachSelection, eachSelectionOptimized
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
@@ -117,7 +117,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 2.0.0-dev",
+	_VERSION = "InputField 3.0.0",
 }
 
 
@@ -153,6 +153,26 @@ local function isInteger(v)
 end
 
 
+
+local function nextCodepoint(s, i)
+	if i <= 0 then
+		if s == "" then  return  end
+		i = 1
+	else
+		repeat
+			i          = i + 1
+			local byte = s:byte(i)
+
+			if not byte then  return  end
+		until byte < 128
+	end
+
+	return i, utf8.codepoint(s, i)
+end
+
+local function utf8Codes(s) -- We don't use utf8.codes() as it creates garbage!
+	return nextCodepoint, s, 0
+end
 
 local function utf8GetEndOffset(line, pos)
 	return (utf8.offset(line, pos+1) or #line+1) - 1
@@ -220,7 +240,7 @@ do
 
 		local len = 0
 
-		for _, cp in utf8.codes(s) do
+		for _, cp in utf8Codes(s) do
 			len             = len + 1
 			codepoints[len] = cp
 		end
@@ -1599,6 +1619,48 @@ end
 
 
 
+local versionMajor, versionMinor = love.getVersion()
+local hasGetKerningMethod        = false--(versionMajor > 11) or (versionMajor == 11 and versionMinor >= 4)
+local cache                      = {}
+
+local getSelectionLayoutOnLine = (
+	hasGetKerningMethod and function(font, line, posOnLine1, posOnLine2) -- Currently worse than the fallback!
+		local pos    = 0
+		local x      = 0
+		local x1     = 0
+		local lastCp = 0
+
+		for _, cp in utf8Codes(line) do
+			pos = pos + 1
+
+			if lastCp > 0 then
+				x = x + font:getKerning(lastCp, cp)
+			end
+			cache[cp] = cache[cp] or utf8.char(cp) ; x = x + font:getWidth(cache[cp]) -- Not sure if the cache is doing anything...
+			-- x = x + font:getWidth(utf8.char(cp))
+
+			if pos == posOnLine1-1 then
+				x1 = x
+			end
+			if pos == posOnLine2 then
+				return x1, x -- @Polish: Handle kerning on the right end of the selection.
+			end
+
+			lastCp = cp
+		end
+
+		return x, x
+	end
+
+	or function(font, line, posOnLine1, posOnLine2)
+		local preText       = line:sub(1, utf8.offset     (line, posOnLine1)-1) -- @Speed @Memory
+		local preAndMidText = line:sub(1, utf8GetEndOffset(line, posOnLine2)  ) -- @Speed @Memory
+		local x1            = font:getWidth(preText)
+		local x2            = font:getWidth(preAndMidText) -- @Polish: Handle kerning on the right end of the selection.
+		return x1, x2
+	end
+)
+
 local function nextSelection(selections, i)
 	i          = i + 1
 	local line = selections[3*i-2]
@@ -1608,13 +1670,9 @@ local function nextSelection(selections, i)
 	local field = selections.field
 	local font  = field.font
 
-	local posOnLine1    = selections[3*i-1]
-	local posOnLine2    = selections[3*i  ]
-	local preText       = line:sub(1, utf8.offset(line, posOnLine1)-1) -- @Speed @Memory
-	local preAndMidText = line:sub(1, utf8GetEndOffset(line, posOnLine2)) -- @Speed @Memory
-
-	local x1 = font:getWidth(preText)
-	local x2 = font:getWidth(preAndMidText) -- @Polish: Handle kerning on the right end of the selection.
+	local posOnLine1 = selections[3*i-1]
+	local posOnLine2 = selections[3*i  ]
+	local x1, x2     = getSelectionLayoutOnLine(font, line, posOnLine1, posOnLine2)
 
 	local fontH    = font:getHeight()
 	local lineDist = math.ceil(fontH*font:getLineHeight())
@@ -1631,29 +1689,27 @@ local function nextSelection(selections, i)
 		fontH
 end
 
--- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection( )
--- Note: The coordinates are relative to the field's position.
--- Warning: This function may chew through lots of memory if many lines are selected!
-function InputField.eachSelection(field)
-	if field.selectionStart == field.selectionEnd then  return noop  end
+local selectionsReused = {field=nil, lineOffset=0, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]}
 
-	updateWrap(field)
+local function _eachSelection(field, selections)
+	-- updateWrap(field) -- getLineInfoAtPosition() calls this.
 
 	local startLine, startPosOnLine, startLineI, startLinePos1, startLinePos2 = getLineInfoAtPosition(field, field.selectionStart)
 	local   endLine,   endPosOnLine,   endLineI,   endLinePos1,   endLinePos2 = getLineInfoAtPosition(field, field.selectionEnd)
 
 	-- Note: We include selections that are empty.
-	local selections = {field=field, lineOffset=startLineI-2, --[[ line1, startPositionOnLine1, endPositionOnLine1, ... ]]} -- @Speed @Memory: Don't create a new table every call!
+	selections.field      = field
+	selections.lineOffset = startLineI - 2
 
 	if startLineI == endLineI then
-		table.insert(selections, startLine)
-		table.insert(selections, startPosOnLine+1)
-		table.insert(selections, endPosOnLine)
+		selections[1] = startLine
+		selections[2] = startPosOnLine + 1
+		selections[3] = endPosOnLine
 
 	else
-		table.insert(selections, startLine)
-		table.insert(selections, startPosOnLine+1)
-		table.insert(selections, startLinePos2-startLinePos1+1)
+		selections[1] = startLine
+		selections[2] = startPosOnLine + 1
+		selections[3] = startLinePos2 - startLinePos1 + 1
 
 		for lineI = startLineI+1, endLineI-1 do
 			local line = field.wrappedText[lineI]
@@ -1668,6 +1724,30 @@ function InputField.eachSelection(field)
 	end
 
 	return nextSelection, selections, 0
+end
+
+
+
+-- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection( )
+-- Note: The coordinates are relative to the field's position.
+-- Warning: This function may chew through lots of memory if many lines are selected! Consider using field:eachSelectionOptimized() instead.
+function InputField.eachSelection(field)
+	if field.selectionStart == field.selectionEnd then  return noop  end
+
+	return _eachSelection(field, {}) -- @Speed @Memory: Don't create a new table every call!
+end
+
+-- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelectionOptimized( )
+-- Same as field:eachSelection() but more optimized. However, this function must not be called recursively!
+-- Note: The coordinates are relative to the field's position.
+function InputField.eachSelectionOptimized(field)
+	if field.selectionStart == field.selectionEnd then  return noop  end
+
+	for i = 4, #selectionsReused do
+		selectionsReused[i] = nil
+	end
+
+	return _eachSelection(field, selectionsReused)
 end
 
 

@@ -57,20 +57,18 @@ do
 	assertValue(field:getFilter(), nil)
 
 	-- Font and filtering.
-	local defaultFont = field:getFont()
-
-	local font = love.graphics.newImageFont(love.image.newImageData(6, 1, "rgba8", table.concat{
+	local imageDataStr = table.concat{
+		"\0\0\0\0", "\255\255\255\255",
+		"\0\0\0\0", "\255\255\255\255", "\255\255\255\255",
 		"\0\0\0\0",
-		"\255\255\255\255",
-		"\0\0\0\0",
-		"\255\255\255\255",
-		"\255\255\255\255",
-		"\0\0\0\0",
-	}), "12")
+	}
+	local imageData = (love.getVersion() < 11) and love.image.newImageData(#imageDataStr/4, 1, imageDataStr) or love.image.newImageData(#imageDataStr/4, 1, "rgba8", imageDataStr)
+	local font      = love.graphics.newImageFont(imageData, "12")
 
 	field:setFontFilteringActive(true)
 	assertValue(field:isFontFilteringActive(), true)
 
+	local defaultFont = field:getFont()
 	field:setFont(font)
 	assertValue(field:getFont(), font)
 

@@ -1,5 +1,5 @@
 Changelog
 InputField
 
-v3.0 (2022-01-13)
+v3.0 (2022-01-14)
 - First public release!
