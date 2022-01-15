@@ -46,6 +46,7 @@
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
 	getTextOffset
+	isBusy
 	releaseMouse
 	reset
 
@@ -642,11 +643,14 @@ local function newInputField(text, fieldType)
 
 		filterFunction = nil,
 
-		mouseScrollSpeedX       = 6.0, -- Per pixel per second.
-		mouseScrollSpeedY       = 8.0,
-		mouseScrollX            = nil,
-		mouseScrollY            = nil,
-		mouseTextSelectionStart = nil,
+		mouseScrollSpeedX = 6.0, -- Per pixel per second.
+		mouseScrollSpeedY = 8.0,
+
+		dragMode           = "", -- "" | "character" | "word"
+		dragStartPosition1 = 0,
+		dragStartPosition2 = 0,
+		dragLastX          = 0,
+		dragLastY          = 0,
 
 		editingEnabled = true,
 
@@ -1057,6 +1061,8 @@ end
 
 -- field:reset( [ initialText="" ] )
 function InputField.reset(field, text)
+	field:releaseMouse()
+
 	field.cursorPosition = 0
 	field.selectionStart = 0
 	field.selectionEnd   = 0
@@ -1149,9 +1155,9 @@ end
 
 -- field:update( deltaTime )
 function InputField.update(field, dt)
-	if field.mouseScrollX then
-		local mx         = field.mouseScrollX
-		local my         = field.mouseScrollY
+	if field.dragMode ~= "" then
+		local mx         = field.dragLastX
+		local my         = field.dragLastY
 		local oldScrollX = field.scrollX
 		local oldScrollY = field.scrollY
 		local scrollX    = oldScrollX
@@ -1159,14 +1165,11 @@ function InputField.update(field, dt)
 		local w          = field.width
 		local h          = field.height
 
-		scrollX = (mx < 0 and scrollX+field.mouseScrollSpeedX*mx*dt) or (mx > w and scrollX+field.mouseScrollSpeedX*(mx-w)*dt) or (scrollX)
-		scrollY = (my < 0 and scrollY+field.mouseScrollSpeedY*my*dt) or (my > h and scrollY+field.mouseScrollSpeedY*(my-h)*dt) or (scrollY)
-
-		field.scrollX = scrollX
-		field.scrollY = scrollY
+		field.scrollX = (mx < 0 and scrollX+field.mouseScrollSpeedX*mx*dt) or (mx > w and scrollX+field.mouseScrollSpeedX*(mx-w)*dt) or (scrollX)
+		field.scrollY = (my < 0 and scrollY+field.mouseScrollSpeedY*my*dt) or (my > h and scrollY+field.mouseScrollSpeedY*(my-h)*dt) or (scrollY)
 		limitScroll(field)
 
-		if not (scrollX == oldScrollX and scrollY == oldScrollY) then
+		if not (field.scrollX == oldScrollX and field.scrollY == oldScrollY) then
 			field:mousemoved(mx, my) -- This should only update selection stuff.
 		end
 	end
@@ -1208,25 +1211,34 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 
 	if isDoubleClick then
 		local visibleText = field:getVisibleText()
-		pos               = getNextWordBound(visibleText, pos+1, -1)
+		local pos1        = getNextWordBound(visibleText, pos+1, -1)
+		local pos2        = getNextWordBound(visibleText, pos1,   1)
 
-		field:setSelection(pos, getNextWordBound(visibleText, pos, 1))
+		field:setSelection(pos1, pos2)
+
+		field.dragMode           = "word"
+		field.dragStartPosition1 = pos1
+		field.dragStartPosition2 = pos2
+		field.dragLastX          = mx
+		field.dragLastY          = my
 
 	elseif getModKeys() == "s" then
 		local anchorPos = (field:getAnchorSelectionSide() == "start" and field.selectionStart or field.selectionEnd)
 
 		field:setSelection(pos, anchorPos, (pos < anchorPos and "left" or "right"))
 
-		field.mouseTextSelectionStart = anchorPos
-		field.mouseScrollX            = mx
-		field.mouseScrollY            = my
+		field.dragMode           = "character"
+		field.dragStartPosition1 = anchorPos
+		field.dragLastX          = mx
+		field.dragLastY          = my
 
 	else
 		field:setCursor(pos)
 
-		field.mouseTextSelectionStart = pos
-		field.mouseScrollX            = mx
-		field.mouseScrollY            = my
+		field.dragMode           = "character"
+		field.dragStartPosition1 = pos
+		field.dragLastX          = mx
+		field.dragLastY          = my
 	end
 
 	return true
@@ -1235,35 +1247,42 @@ end
 -- eventWasHandled = field:mousemoved( mouseX, mouseY )
 -- Note: The coordinates must be relative to the field's position on the screen.
 function InputField.mousemoved(field, mx, my)
-	if not field.mouseTextSelectionStart then  return false  end
+	if field.dragMode == "" then  return false  end
 
 	local scrollX = field.scrollX
 	local scrollY = field.scrollY
 	local pos     = getCursorPositionAtCoordinates(field, mx+field.scrollX, my+field.scrollY)
 
-	field:setSelection(
-		field.mouseTextSelectionStart,
-		pos,
-		(pos < field.mouseTextSelectionStart and "left" or "right")
-	)
+	if field.dragMode == "word" then
+		local visibleText = field:getVisibleText()
+		local pos1        = getNextWordBound(visibleText, pos+1, -1)
+		local pos2        = getNextWordBound(visibleText, pos1,   1)
+
+		if pos1 < field.dragStartPosition1 then
+			field:setSelection(pos1, field.dragStartPosition2, "left")
+		else
+			field:setSelection(field.dragStartPosition1, pos2, "right")
+		end
+
+	else
+		field:setSelection(field.dragStartPosition1, pos, (pos < field.dragStartPosition1 and "left" or "right"))
+	end
 
 	field.scrollX = scrollX -- Prevent scrolling to cursor while dragging.
 	field.scrollY = scrollY
 
-	field.mouseScrollX = mx
-	field.mouseScrollY = my
+	field.dragLastX = mx
+	field.dragLastY = my
 	return true
 end
 
 -- eventWasHandled = field:mousereleased( mouseX, mouseY, mouseButton )
 -- Note: The coordinates must be relative to the field's position on the screen.
 function InputField.mousereleased(field, mx, my, mbutton)
-	if mbutton ~= 1                      then  return false  end
-	if not field.mouseTextSelectionStart then  return false  end
+	if mbutton ~= 1         then  return false  end
+	if field.dragMode == "" then  return false  end
 
-	field.mouseTextSelectionStart = nil
-	field.mouseScrollX            = nil
-	field.mouseScrollY            = nil
+	field.dragMode = ""
 
 	scrollToCursor(field)
 	return true
@@ -1274,11 +1293,15 @@ end
 -- field:releaseMouse( )
 -- Release mouse buttons that are held down (i.e. stop drag-selecting).
 function InputField.releaseMouse(field)
-	if field.mouseTextSelectionStart then
-		field.mouseTextSelectionStart = nil
-		field.mouseScrollX            = nil
-		field.mouseScrollY            = nil
-	end
+	field.dragMode = ""
+end
+
+
+
+-- bool = field:isBusy( )
+-- Returns true if the user is currently drag-selecting.
+function InputField.isBusy(field)
+	return field.dragMode ~= ""
 end
 
 
@@ -1591,6 +1614,13 @@ KEY_HANDLERS["cs"]["z"] = function(field, isRepeat)
 	return true, true
 end
 KEY_HANDLERS["c"]["y"] = KEY_HANDLERS["cs"]["z"]
+
+-- Escape while dragging: Stop dragging.
+KEY_HANDLERS[""]["escape"] = function(field, isRepeat)
+	if field.dragMode == "" then  return false, false  end
+	field:releaseMouse()
+	return true, false
+end
 
 
 

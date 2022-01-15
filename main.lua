@@ -59,10 +59,10 @@ field:setDimensions(FIELD_INNER_WIDTH, FIELD_INNER_HEIGHT)
 
 
 function love.keypressed(key, scancode, isRepeat)
-	if key == "escape" then
+	if field:keypressed(key, isRepeat) then
+		-- Event was handled.
+	elseif key == "escape" then
 		love.event.quit()
-	else
-		field:keypressed(key, isRepeat)
 	end
 end
 
@@ -165,13 +165,14 @@ function love.draw()
 	-- Stats.
 	--
 	local text = string.format(
-		"Memory: %.2f MB\nDraw time: %.1f ms",
+		"Memory: %.2f MB\nDraw time: %.1f ms\nIs busy: %s",
 		collectgarbage"count" / 1024,
-		(love.timer.getTime()-time) * 1000
+		(love.timer.getTime()-time) * 1000,
+		tostring(field:isBusy())
 	)
 	LG.setFont(smallFont)
 	LG.setColor(1, 1, 1, .5)
-	LG.print(text, 0, LG.getHeight()-2*smallFont:getHeight())
+	LG.print(text, 0, LG.getHeight()-3*smallFont:getHeight())
 end
 
 
