@@ -156,17 +156,25 @@ end
 
 
 local function nextCodepoint(s, i)
-	if i <= 0 then
-		if s == "" then  return  end
+	if i > 0 then
+		local b = s:byte(i)
+		if not b then
+			return
+		elseif b >= 240 then
+			i = i + 4
+		elseif b >= 224 then
+			i = i + 3
+		elseif b >= 192 then
+			i = i + 2
+		else
+			i = i + 1
+		end
+	elseif i == 0 then
 		i = 1
-	else
-		repeat
-			i          = i + 1
-			local byte = s:byte(i)
-
-			if not byte then  return  end
-		until byte < 128
+	elseif i < 0 then
+		return
 	end
+	if i > #s then  return  end
 
 	return i, utf8.codepoint(s, i)
 end
