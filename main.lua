@@ -125,9 +125,8 @@ function love.draw()
 	end
 
 	-- Cursor.
-	local cursorWidth      = 2
-	local cursorHeight     = theFont:getHeight()
-	local cursorX, cursorY = field:getCursorLayout()
+	local cursorWidth = 2
+	local cursorX, cursorY, cursorHeight = field:getCursorLayout()
 	LG.setColor(1, 1, 1, ((field:getBlinkPhase()/BLINK_INTERVAL)%1 < .5 and 1 or 0))
 	LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
 
