@@ -1541,7 +1541,7 @@ KEY_HANDLERS["c"]["c"] = function(field, isRepeat)
 end
 KEY_HANDLERS["c"]["insert"] = KEY_HANDLERS["c"]["c"]
 
--- Ctrl+X: Cut selected text (or copy if not editable).
+-- Ctrl+X, Shift+Delete: Cut selected text (or copy if not editable).
 KEY_HANDLERS["c"]["x"] = function(field, isRepeat)
 	local text = field:getSelectedVisibleText()
 	if text == "" then  return true, false  end
@@ -1556,6 +1556,7 @@ KEY_HANDLERS["c"]["x"] = function(field, isRepeat)
 		return true, false
 	end
 end
+KEY_HANDLERS["s"]["delete"] = KEY_HANDLERS["c"]["x"]
 
 -- Ctrl+V, Shift+Insert: Paste copied text.
 KEY_HANDLERS["c"]["v"] = function(field, isRepeat)
