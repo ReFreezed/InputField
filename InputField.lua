@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.0 (for LÖVE 0.10.2+)
+--=  InputField v3.0.1 (for LÖVE 0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=
@@ -118,7 +118,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.0.0",
+	_VERSION = "InputField 3.0.1",
 }
 
 
@@ -652,8 +652,8 @@ local function newInputField(text, fieldType)
 
 		-- These are updated by updateWrap():
 		lastWrappedText = "",
-		wrappedText     = {}, -- []line
-		softBreak       = {}, -- []bool
+		wrappedText     = {""}, -- []line
+		softBreak       = {false}, -- []bool
 		wrappedWidth    = 0,
 	}, InputField)
 

@@ -1,5 +1,8 @@
 Changelog
 InputField
 
+v3.0.1 (2022-01-14)
+- Fixed freezing issue when calling some methods on fields that never had any text.
+
 v3.0 (2022-01-14)
 - First public release!

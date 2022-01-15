@@ -210,6 +210,12 @@ do
 	assertValue(field:getVisibleText(), "fo\no")
 end
 
+do
+	-- Bug: Calling some methods on a field that never had text causes a freeze.
+	local field = InputField("", "multiwrap")
+	field:selectAll()
+end
+
 -- @Incomplete:
 -- eachVisibleLine, eachSelection
 -- getCursorLayout
