@@ -19,6 +19,7 @@ You can download the [latest release](https://github.com/ReFreezed/InputField/re
 - Different field types: *Single-line*, *multi-line* (with or without wrapping), *password* (obscured characters).
 - Text cursor and navigation (by keyboard and mouse).
 - Text selection.
+- Scrolling, both vertical and horizontal.
 - Shortcuts for common operations, like copying selected text and deleting the next word.
 - Undo and redo (history).
 - Helper functions for rendering.

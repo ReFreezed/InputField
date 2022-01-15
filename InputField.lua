@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.0.1 (for LÖVE 0.10.2+)
+--=  InputField v3.1 (for LÖVE 0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=
@@ -119,7 +119,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.0.1",
+	_VERSION = "InputField 3.1.0",
 }
 
 
@@ -738,6 +738,7 @@ end
 
 
 -- position = field:getCursor( )
+-- Position 0 is before first character, position 1 is between first and second etc.
 function InputField.getCursor(field)
 	return field.cursorPosition
 end
@@ -889,6 +890,7 @@ end
 
 
 -- fromPosition, toPosition = field:getSelection( )
+-- Position 0 is before first character, position 1 is between first and second etc.
 function InputField.getSelection(field)
 	return field.selectionStart, field.selectionEnd
 end
@@ -1006,7 +1008,10 @@ function InputField.getHeight(field)
 end
 
 -- field:setDimensions( width, height )
+-- field:setDimensions( math.huge, math.huge ) -- Disable scrolling on both axes.
 function InputField.setDimensions(field, w, h)
+	w = math.max(w, 0)
+	h = math.max(h, 0)
 	if field.width == w and field.height == h then  return  end
 
 	field.width           = w
@@ -1017,7 +1022,9 @@ function InputField.setDimensions(field, w, h)
 end
 
 -- field:setWidth( width )
+-- field:setWidth( math.huge ) -- Disable scrolling on the x axis.
 function InputField.setWidth(field, w)
+	w = math.max(w, 0)
 	if field.width == w then  return  end
 
 	field.width           = w
@@ -1027,7 +1034,9 @@ function InputField.setWidth(field, w)
 end
 
 -- field:setHeight( height )
+-- field:setHeight( math.huge ) -- Disable scrolling on the y axis.
 function InputField.setHeight(field, h)
+	h = math.max(h, 0)
 	if field.height == h then  return  end
 
 	field.height = h -- Note: wrappedText does not need to update because of this change.

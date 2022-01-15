@@ -1,6 +1,13 @@
 Changelog
 InputField
 
+v3.1 (2022-01-15)
+- Added double-click-and-drag to select words.
+- Added shortcut Shift+Delete to cut text.
+- Pressing escape while dragging stops the dragging.
+- Fixed word navigation/selection not working.
+- Better Unicode support for word navigation/selection.
+
 v3.0.1 (2022-01-14)
 - Fixed freezing issue when calling some methods on fields that never had any text.
 
