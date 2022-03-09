@@ -1,8 +1,9 @@
 --[[============================================================
 --=
---=  InputField v3.1 (for LÖVE 0.10.2+)
+--=  InputField v3.1 - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
+--=  - https://github.com/ReFreezed/InputField
 --=
 --==============================================================
 

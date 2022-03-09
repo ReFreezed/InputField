@@ -73,6 +73,6 @@ end
 ```
 
 See the [library file](https://raw.githubusercontent.com/ReFreezed/InputField/master/InputField.lua) for documentation,
-or [main.lua](https://raw.githubusercontent.com/ReFreezed/InputField/master/main.lua) for an example program.
+or [main.lua](https://raw.githubusercontent.com/ReFreezed/InputField/master/main.lua) for a more elaborate example program.
 
 

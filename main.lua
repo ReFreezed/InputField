@@ -4,10 +4,7 @@
 local FONT_SIZE        = 20
 local FONT_LINE_HEIGHT = 1.3
 
-local FIELD_TYPE = "normal"
-local FIELD_TYPE = "password"
-local FIELD_TYPE = "multiwrap"
--- local FIELD_TYPE = "multinowrap"
+local FIELD_TYPE = "multiwrap" -- Possible values: normal, password, multiwrap, multinowrap
 
 local FIELD_OUTER_X      = 50
 local FIELD_OUTER_Y      = 100
@@ -56,23 +53,40 @@ local field      = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
 field:setFont(theFont)
 field:setDimensions(FIELD_INNER_WIDTH, FIELD_INNER_HEIGHT)
 
+local fieldHasFocus = true -- Example how the concept of focus can be implemented.
+
 
 
 function love.keypressed(key, scancode, isRepeat)
-	if field:keypressed(key, isRepeat) then
+	-- First handle keys that override InputField's behavior.
+	if key == "tab" then
+		fieldHasFocus = not fieldHasFocus
+		field:resetBlinking()
+
+	-- Then handle InputField (if it has focus).
+	elseif fieldHasFocus and field:keypressed(key, isRepeat) then
 		-- Event was handled.
+
+	-- Lastly handle keys for when InputField doesn't have focus or the key
+	-- wasn't handled by the library.
 	elseif key == "escape" then
 		love.event.quit()
 	end
 end
 
 function love.textinput(text)
-	field:textinput(text)
+	if fieldHasFocus then
+		field:textinput(text)
+	end
 end
 
 
 
 function love.mousepressed(mx, my, mbutton, pressCount)
+	if not fieldHasFocus then
+		fieldHasFocus = true
+		field:resetBlinking()
+	end
 	field:mousepressed(mx-FIELD_INNER_X, my-FIELD_INNER_Y, mbutton, pressCount)
 end
 
@@ -112,23 +126,27 @@ function love.draw()
 	LG.rectangle("fill", FIELD_OUTER_X, FIELD_OUTER_Y, FIELD_OUTER_WIDTH, FIELD_OUTER_HEIGHT)
 
 	-- Selection.
-	LG.setColor(.2, .2, 1)
-	for _, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection() do
-		LG.rectangle("fill", FIELD_INNER_X+selectionX, FIELD_INNER_Y+selectionY, selectionWidth, selectionHeight)
+	if fieldHasFocus then
+		LG.setColor(.2, .2, 1)
+		for _, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection() do
+			LG.rectangle("fill", FIELD_INNER_X+selectionX, FIELD_INNER_Y+selectionY, selectionWidth, selectionHeight)
+		end
 	end
 
 	-- Text.
 	LG.setFont(theFont)
-	LG.setColor(1, 1, 1)
+	LG.setColor(1, 1, 1, (fieldHasFocus and 1 or .6))
 	for _, lineText, lineX, lineY in field:eachVisibleLine() do
 		LG.print(lineText, FIELD_INNER_X+lineX, FIELD_INNER_Y+lineY)
 	end
 
 	-- Cursor.
-	local cursorWidth = 2
-	local cursorX, cursorY, cursorHeight = field:getCursorLayout()
-	LG.setColor(1, 1, 1, ((field:getBlinkPhase()/BLINK_INTERVAL)%1 < .5 and 1 or 0))
-	LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
+	if fieldHasFocus then
+		local cursorWidth = 2
+		local cursorX, cursorY, cursorHeight = field:getCursorLayout()
+		LG.setColor(1, 1, 1, ((field:getBlinkPhase()/BLINK_INTERVAL)%1 < .5 and 1 or 0))
+		LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
+	end
 
 	LG.setScissor()
 
