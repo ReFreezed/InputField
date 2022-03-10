@@ -1793,6 +1793,8 @@ end
 
 -- eventWasHandled, textWasEdited = field:keypressed( key, isRepeat )
 function InputField.keypressed(field, key, isRepeat)
+	if field.dragMode ~= "" then  return true, false  end
+
 	local keyHandler = KEY_HANDLERS[getModKeys()][key]
 
 	if keyHandler then
@@ -1804,6 +1806,7 @@ end
 
 -- eventWasHandled, textWasEdited = field:textinput( text )
 function InputField.textinput(field, text)
+	if field.dragMode ~= ""     then  return true, false  end
 	if not field.editingEnabled then  return true, false  end
 	field:insert(applyFilter(field, text))
 	return true, true
