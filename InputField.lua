@@ -41,7 +41,7 @@
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
 	getMaxHistory, setMaxHistory
-	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
+	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
 	getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
@@ -524,31 +524,6 @@ local function limitScroll(field)
 	field.scrollY        = clamp(field.scrollY, 0, limitY)
 end
 
-local function scrollToCursor(field)
-	local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
-
-	do
-		local fontH    = field.font:getHeight()
-		local lineDist = math.ceil(fontH*field.font:getLineHeight())
-		local y        = (lineI - 1) * lineDist
-		field.scrollY  = clamp(field.scrollY, y-field.height+fontH, y)
-	end
-
-	if not field:isMultiline() then
-		local visibleText = field:getVisibleText()
-		local preText     = visibleText:sub(1, utf8GetEndOffset(visibleText, field.cursorPosition))
-		local x           = field.font:getWidth(preText)
-		field.scrollX     = clamp(field.scrollX, x-field.width, x)
-
-	elseif field.type == "multinowrap" then
-		local preText = line:sub(1, utf8GetEndOffset(line, posOnLine))
-		local x       = field.font:getWidth(preText)
-		field.scrollX = clamp(field.scrollX, x-field.width, x)
-	end
-
-	limitScroll(field)
-end
-
 
 
 local function applyFilter(field, s)
@@ -632,7 +607,7 @@ local function undoEdit(field)
 	applyHistoryState(field, -1)
 
 	field:resetBlinking()
-	scrollToCursor(field)
+	field:scrollToCursor()
 end
 
 local function redoEdit(field)
@@ -642,7 +617,7 @@ local function redoEdit(field)
 	applyHistoryState(field, 1)
 
 	field:resetBlinking()
-	scrollToCursor(field)
+	field:scrollToCursor()
 end
 
 
@@ -759,7 +734,7 @@ function InputField.setCursor(field, pos, selSideAnchor)
 	field.selectionEnd   = math.max(selStart, selEnd)
 
 	field:resetBlinking()
-	scrollToCursor(field)
+	field:scrollToCursor()
 end
 
 -- field:moveCursor( amount [, selectionSideToAnchor:SelectionSide=none ] )
@@ -832,6 +807,32 @@ end
 function InputField.scroll(field, dx, dy)
 	field.scrollX = field.scrollX + dx
 	field.scrollY = field.scrollY + dy
+	limitScroll(field)
+end
+
+-- field:scrollToCursor( )
+function InputField.scrollToCursor(field)
+	local line, posOnLine, lineI = getLineInfoAtPosition(field, field.cursorPosition)
+
+	do
+		local fontH    = field.font:getHeight()
+		local lineDist = math.ceil(fontH*field.font:getLineHeight())
+		local y        = (lineI - 1) * lineDist
+		field.scrollY  = clamp(field.scrollY, y-field.height+fontH, y)
+	end
+
+	if not field:isMultiline() then
+		local visibleText = field:getVisibleText()
+		local preText     = visibleText:sub(1, utf8GetEndOffset(visibleText, field.cursorPosition))
+		local x           = field.font:getWidth(preText)
+		field.scrollX     = clamp(field.scrollX, x-field.width, x)
+
+	elseif field.type == "multinowrap" then
+		local preText = line:sub(1, utf8GetEndOffset(line, posOnLine))
+		local x       = field.font:getWidth(preText)
+		field.scrollX = clamp(field.scrollX, x-field.width, x)
+	end
+
 	limitScroll(field)
 end
 
@@ -913,7 +914,7 @@ function InputField.setSelection(field, from, to, cursorAlign)
 	field.cursorPosition = (cursorAlign == "left") and from or to
 
 	field:resetBlinking()
-	scrollToCursor(field)
+	field:scrollToCursor()
 end
 
 -- field:selectAll( )
@@ -1105,7 +1106,7 @@ function InputField.insert(field, newText)
 	end
 
 	field:resetBlinking()
-	scrollToCursor(field)
+	field:scrollToCursor()
 end
 
 
@@ -1383,7 +1384,7 @@ function InputField.mousereleased(field, mx, my, mbutton)
 
 	field.dragMode = ""
 
-	scrollToCursor(field)
+	field:scrollToCursor()
 	return true
 end
 
@@ -1585,7 +1586,7 @@ KEY_HANDLERS[""]["backspace"] = function(field, isRepeat)
 
 	elseif field.cursorPosition == 0 then
 		field:resetBlinking()
-		scrollToCursor(field)
+		field:scrollToCursor()
 		return true, false
 
 	else
@@ -1620,7 +1621,7 @@ KEY_HANDLERS[""]["delete"] = function(field, isRepeat)
 
 	elseif field.cursorPosition == field:getTextLength() then
 		field:resetBlinking()
-		scrollToCursor(field)
+		field:scrollToCursor()
 		return true, false
 
 	else
