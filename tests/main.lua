@@ -217,9 +217,12 @@ do
 end
 
 -- @Incomplete:
+-- canScroll, canScrollHorizontally, canScrollVertically
 -- eachVisibleLine, eachSelection
+-- getAlignment, setAlignment
 -- getCursorLayout
--- getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
+-- getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
+-- getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 -- getScrollLimits
 -- getTextDimensions, getTextWidth, getTextHeight
 -- getTextOffset

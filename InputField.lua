@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.1-dev - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.2 - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -128,7 +128,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.1.0-dev",
+	_VERSION = "InputField 3.2.0",
 }
 
 
@@ -736,6 +736,7 @@ end
 
 -- phase = field:getBlinkPhase( )
 -- Get current phase for an animated cursor.
+-- The value is the time since the last blink reset.
 function InputField.getBlinkPhase(field)
 	return LT.getTime() - field.blinkTimer
 end
@@ -754,6 +755,7 @@ function InputField.getCursor(field)
 end
 
 -- field:setCursor( position [, selectionSideToAnchor:SelectionSide=none ] )
+-- Position 0 is before first character, position 1 is between first and second etc.
 function InputField.setCursor(field, pos, selSideAnchor)
 	finilizeHistoryGroup(field)
 
@@ -769,9 +771,10 @@ function InputField.setCursor(field, pos, selSideAnchor)
 	field:scrollToCursor()
 end
 
--- field:moveCursor( amount [, selectionSideToAnchor:SelectionSide=none ] )
-function InputField.moveCursor(field, amount, selSideAnchor)
-	field:setCursor(field.cursorPosition+amount, selSideAnchor)
+-- field:moveCursor( steps [, selectionSideToAnchor:SelectionSide=none ] )
+-- 'steps' may be positive or negative.
+function InputField.moveCursor(field, steps, selSideAnchor)
+	field:setCursor(field.cursorPosition+steps, selSideAnchor)
 end
 
 -- side:SelectionSide = field:getCursorSelectionSide( )
@@ -792,6 +795,7 @@ function InputField.getFont(field)
 end
 
 -- field:setFont( font )
+-- The font is used for text measurements.
 function InputField.setFont(field, font)
 	if field.font == font then  return  end
 
@@ -918,7 +922,7 @@ function InputField.getDoubleClickMaxDelay(field)
 end
 
 -- field:setDoubleClickMaxDelay( delay )
--- This value is only used if the 'pressCount' argument isn't supplied to mousepressed().
+-- Note: This value is only used if the 'pressCount' argument isn't supplied to mousepressed().
 function InputField.setDoubleClickMaxDelay(field, delay)
 	field.doubleClickMaxDelay = math.max(delay, 0)
 end
@@ -932,6 +936,7 @@ function InputField.getSelection(field)
 end
 
 -- field:setSelection( fromPosition, toPosition [, cursorAlign:TextCursorAlignment="right" ] )
+-- Position 0 is before first character, position 1 is between first and second etc.
 function InputField.setSelection(field, from, to, cursorAlign)
 	finilizeHistoryGroup(field)
 
@@ -971,8 +976,17 @@ end
 
 
 -- text = field:getText( )
+-- The text is the value of the field.
+-- Also see field:getVisibleText().
 function InputField.getText(field)
 	return field.text
+end
+
+-- text = field:getVisibleText( )
+-- Returns asterisks for password fields instead of the actual text value.
+-- Also see field:getText().
+function InputField.getVisibleText(field)
+	return (field.type == "password") and ("*"):rep(field:getTextLength()) or field.text -- @Speed: Maybe cache the repeated text.
 end
 
 -- field:setText( text )
@@ -988,11 +1002,6 @@ function InputField.setText(field, text)
 	field.selectionEnd   = math.min(len, field.selectionEnd)
 
 	pushHistory(field, nil)
-end
-
--- text = field:getVisibleText( )
-function InputField.getVisibleText(field)
-	return (field.type == "password") and ("*"):rep(field:getTextLength()) or field.text -- @Speed: Maybe cache the repeated text.
 end
 
 
@@ -1045,6 +1054,7 @@ end
 
 -- field:setDimensions( width, height )
 -- field:setDimensions( nil, nil ) -- Disable scrolling on both axes.
+-- Enable/disable horizontal/vertical scrolling.
 function InputField.setDimensions(field, w, h)
 	w = math.max((w or 1/0), 0)
 	h = math.max((h or 1/0), 0)
@@ -1059,6 +1069,7 @@ end
 
 -- field:setWidth( width )
 -- field:setWidth( nil ) -- Disable scrolling on the x axis.
+-- Enable/disable horizontal scrolling.
 function InputField.setWidth(field, w)
 	w = math.max((w or 1/0), 0)
 	if field.width == w then  return  end
@@ -1071,6 +1082,7 @@ end
 
 -- field:setHeight( height )
 -- field:setHeight( nil ) -- Disable scrolling on the y axis.
+-- Enable/disable vertical scrolling.
 function InputField.setHeight(field, h)
 	h = math.max((h or 1/0), 0)
 	if field.height == h then  return  end
@@ -1168,6 +1180,7 @@ function InputField.setFontFilteringActive(field, state)  field.fontFilteringIsA
 
 -- bool = field:isEditable( )
 -- field:setEditable( bool )
+-- Enable/disable read-only mode.
 function InputField.isEditable(field)          return field.editingEnabled   end
 function InputField.setEditable(field, state)  field.editingEnabled = state  end
 
@@ -1190,7 +1203,7 @@ end
 --
 -- setFilter( filterFunction )
 -- setFilter( nil ) -- Remove filter.
--- removeCharacter = filterFunction( character )
+-- removeCharacter:bool = filterFunction( utf8Character )
 --
 -- Filter out entered characters.
 --
@@ -1234,16 +1247,19 @@ end
 
 
 -- horizontally, vertically = field:canScroll( )
+-- Note: Scrolling is enabled/disabled by setDimensions() and company.
 function InputField.canScroll(field)
 	return field:canScrollHorizontally(), field:canScrollVertically()
 end
 
 -- horizontally = field:canScrollHorizontally( )
+-- Note: Scrolling is enabled/disabled by setDimensions() or setWidth().
 function InputField.canScrollHorizontally(field)
 	return field.type ~= "multiwrap"
 end
 
 -- vertically = field:canScrollVertically( )
+-- Note: Scrolling is enabled/disabled by setDimensions() or setHeight().
 function InputField.canScrollVertically(field)
 	return field.type == "multiwrap" or field.type == "multinowrap"
 end
@@ -1281,7 +1297,7 @@ end
 
 
 
--- alignment = field:getAlignment( )
+-- alignment:TextAlignment = field:getAlignment( )
 function InputField.getAlignment(field)
 	return field.alignment
 end

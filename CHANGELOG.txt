@@ -1,6 +1,13 @@
 Changelog
 InputField
 
+v3.2 (2022-03-10)
+- Added text alignment (left/right/center).
+- Added methods: canScroll, canScrollHorizontally, canScrollVertically.
+- Added methods: getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical.
+- PageUp and PageDown work in multi-line fields.
+- Keyboard interactions are now disabled while dragging.
+
 v3.1 (2022-01-15)
 - Added double-click-and-drag to select words.
 - Added shortcut Shift+Delete to cut text.

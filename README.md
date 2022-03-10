@@ -20,7 +20,8 @@ You can download the [latest release](https://github.com/ReFreezed/InputField/re
 - Text cursor and navigation (by keyboard and mouse).
 - Text selection.
 - Scrolling, both vertical and horizontal.
-- Shortcuts for common operations, like copying selected text and deleting the next word.
+- Text alignment.
+- Shortcuts for common operations, like copying selected text or deleting the next word.
 - Undo and redo (history).
 - Helper functions for rendering.
 
