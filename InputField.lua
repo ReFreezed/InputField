@@ -19,6 +19,7 @@
 	-- Search through the file for more info about each individual function.
 
 	-- Settings:
+	getAlignment, setAlignment
 	getDimensions, getWidth, getHeight, setDimensions, setWidth, setHeight
 	getDoubleClickMaxDelay, setDoubleClickMaxDelay
 	getFilter, setFilter
@@ -71,6 +72,11 @@
 	TextCursorAlignment
 		"left"  -- Align cursor to the left.
 		"right" -- Align cursor to the right.
+
+	TextAlignment
+		"left"   -- Align text to the left.
+		"right"  -- Align text to the right.
+		"center" -- Align text to the center.
 
 
 
@@ -396,14 +402,35 @@ end
 
 
 
-local function getCursorPositionAtX(font, line, x)
+local function getLineAlignmentOffset(field, line)
+	if     field.alignment == "left"        then  return 0
+	elseif field.width     == 1/0           then  return 0
+	elseif field.type      == "multinowrap" then  return 0
+	elseif field.alignment == "right"       then  return math.max(field.width-field.font:getWidth(line), 0)
+	elseif field.alignment == "center"      then  return math.floor(.5 * math.max(field.width-field.font:getWidth(line), 0))
+	else
+		error(field.alignment)
+	end
+end
+
+local function alignOnLine(field, line, x)
+	return x + getLineAlignmentOffset(field, line)
+end
+
+local function unalignOnLine(field, line, x)
+	return x - getLineAlignmentOffset(field, line)
+end
+
+local function getCursorPositionAtX(field, line, x)
+	x = unalignOnLine(field, line, x)
+
 	if line == "" or x <= 0 then
 		return 0
-	elseif x <= font:getWidth(line:sub(1, utf8GetEndOffset(line, 1)))/2 then
+	elseif x <= field.font:getWidth(line:sub(1, utf8GetEndOffset(line, 1)))/2 then
 		return 0
 	end
 
-	local lineW = font:getWidth(line)
+	local lineW = field.font:getWidth(line)
 	if x >= lineW then
 		return utf8.len(line)
 	end
@@ -419,7 +446,7 @@ local function getCursorPositionAtX(font, line, x)
 		local pos      = math.floor((posL+posR)/2)
 		local linePart = line:sub(1, utf8GetEndOffset(line, pos)) -- @Memory (We could maybe use font:getKerning() in LÖVE 11.4+ to traverse one character at a time. Might be slower though.)
 
-		local dx = x - font:getWidth(linePart)
+		local dx = x - field.font:getWidth(linePart)
 		if dx == 0 then  return pos  end
 
 		local dist = math.abs(dx)
@@ -458,7 +485,7 @@ local function getCursorPositionAtCoordinates(field, x, y)
 	updateWrap(field)
 
 	if not field:isMultiline() then
-		return getCursorPositionAtX(field.font, field.wrappedText[1], x)
+		return getCursorPositionAtX(field, field.wrappedText[1], x)
 	end
 
 	local fontH     = field.font:getHeight()
@@ -470,7 +497,7 @@ local function getCursorPositionAtCoordinates(field, x, y)
 	if not line then  return 0  end
 
 	local linePos1  = getLineStartPosition(field, lineI)
-	local posOnLine = getCursorPositionAtX(field.font, line, x)
+	local posOnLine = getCursorPositionAtX(field, line, x)
 
 	return linePos1 + posOnLine - 1
 end
@@ -681,6 +708,8 @@ local function newInputField(text, fieldType)
 
 		width  = 1/0,
 		height = 1/0,
+
+		alignment = "left",
 
 		-- These are updated by updateWrap():
 		lastWrappedText = "",
@@ -994,8 +1023,8 @@ function InputField.getCursorLayout(field)
 	local fontH    = field.font:getHeight()
 	local lineDist = math.ceil(fontH*field.font:getLineHeight())
 
-	return field.font:getWidth(preText) - math.floor(field.scrollX),
-	       (lineI-1)*lineDist           - math.floor(field.scrollY),
+	return alignOnLine(field, line, field.font:getWidth(preText)) - math.floor(field.scrollX),
+	       (lineI-1)*lineDist                                     - math.floor(field.scrollY),
 	       fontH
 end
 
@@ -1015,10 +1044,10 @@ function InputField.getHeight(field)
 end
 
 -- field:setDimensions( width, height )
--- field:setDimensions( math.huge, math.huge ) -- Disable scrolling on both axes.
+-- field:setDimensions( nil, nil ) -- Disable scrolling on both axes.
 function InputField.setDimensions(field, w, h)
-	w = math.max(w, 0)
-	h = math.max(h, 0)
+	w = math.max((w or 1/0), 0)
+	h = math.max((h or 1/0), 0)
 	if field.width == w and field.height == h then  return  end
 
 	field.width           = w
@@ -1029,9 +1058,9 @@ function InputField.setDimensions(field, w, h)
 end
 
 -- field:setWidth( width )
--- field:setWidth( math.huge ) -- Disable scrolling on the x axis.
+-- field:setWidth( nil ) -- Disable scrolling on the x axis.
 function InputField.setWidth(field, w)
-	w = math.max(w, 0)
+	w = math.max((w or 1/0), 0)
 	if field.width == w then  return  end
 
 	field.width           = w
@@ -1041,9 +1070,9 @@ function InputField.setWidth(field, w)
 end
 
 -- field:setHeight( height )
--- field:setHeight( math.huge ) -- Disable scrolling on the y axis.
+-- field:setHeight( nil ) -- Disable scrolling on the y axis.
 function InputField.setHeight(field, h)
-	h = math.max(h, 0)
+	h = math.max((h or 1/0), 0)
 	if field.height == h then  return  end
 
 	field.height = h -- Note: wrappedText does not need to update because of this change.
@@ -1248,6 +1277,20 @@ end
 function InputField.getScrollHandleVertical(field)
 	local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
 	return vOffset, vCoverage
+end
+
+
+
+-- alignment = field:getAlignment( )
+function InputField.getAlignment(field)
+	return field.alignment
+end
+
+-- field:setAlignment( alignment:TextAlignment )
+-- Note: The field's width must be set for alignment to work. (See field:setDimensions() or field:setWidth().)
+-- Note: Alignment doesn't work for fields of type "multinowrap".
+function InputField.setAlignment(field, alignment)
+	field.alignment = alignment
 end
 
 
@@ -1532,15 +1575,16 @@ local function navigateByLine(field, dirY, anchor)
 	end
 
 	-- Avoid some work if we're at the start of a line.
-	if oldPosOnLine == 0 or newLine == "" then
+	-- @Incomplete: Handle alignment~="left".
+	if field.alignment == "left" and (oldPosOnLine == 0 or newLine == "") then
 		field:setCursor(newLinePos1-1, anchorSide)
 		return true
 	end
 
 	local linePart = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
-	local targetX  = field.font:getWidth(linePart)
+	local targetX  = alignOnLine(field, oldLine, field.font:getWidth(linePart))
 
-	local posOnLine = getCursorPositionAtX(field.font, newLine, targetX)
+	local posOnLine = getCursorPositionAtX(field, newLine, targetX)
 
 	-- Going from the end of a long line to the end of a short soft-wrapped line would put
 	-- the cursor at the start of the previous long line or two lines down. No good!
@@ -1564,7 +1608,7 @@ local function navigateByPage(field, dirY, anchor)
 		anyHandled = true
 	end
 
-	-- @Incomplete @UX: Preserve x better.
+	-- @Incomplete @UX: Preserve x better (including when navigating by line).
 	if anyHandled then  field:keypressed("home", false)  end -- @Temp so the behavior is a bit more consistent.
 
 	return anyHandled
@@ -1778,8 +1822,8 @@ local function nextLine(field, lineI)
 
 	return lineI,
 		line,
-		-math.floor(field.scrollX),
-		(lineI - 1) * lineDist - math.floor(field.scrollY),
+		alignOnLine(field, line, 0) - math.floor(field.scrollX),
+		(lineI - 1) * lineDist      - math.floor(field.scrollY),
 		field.font:getWidth(line),
 		fontH
 end
@@ -1857,7 +1901,7 @@ local function nextSelection(selections, i)
 	end
 
 	return i,
-		x1 - math.floor(field.scrollX),
+		alignOnLine(field, line, x1)           - math.floor(field.scrollX),
 		(selections.lineOffset + i) * lineDist - math.floor(field.scrollY),
 		x2 - x1,
 		fontH
@@ -1902,22 +1946,31 @@ end
 
 
 
+--
 -- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection( )
+-- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelectionOptimized( )
+--
 -- Note: The coordinates are relative to the field's position.
--- Warning: This function may chew through lots of memory if many lines are selected! Consider using field:eachSelectionOptimized() instead.
+--
+-- Note: It's possible for the right side of selections to extend slightly
+-- past the specified width of the field in multi-line fields.
+--
+-- Warning: field:eachSelection() may chew through lots of memory if many
+-- lines are selected! Consider using field:eachSelectionOptimized() instead.
+--
+-- Warning: field:eachSelectionOptimized() must not be called recursively!
+--
+
 function InputField.eachSelection(field)
 	if field.selectionStart == field.selectionEnd then  return noop  end
 
 	return _eachSelection(field, {}) -- @Speed @Memory: Don't create a new table every call!
 end
 
--- for index, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelectionOptimized( )
--- Same as field:eachSelection() but more optimized. However, this function must not be called recursively!
--- Note: The coordinates are relative to the field's position.
 function InputField.eachSelectionOptimized(field)
 	if field.selectionStart == field.selectionEnd then  return noop  end
 
-	for i = 4, #selectionsReused do
+	for i = 4, #selectionsReused do -- selectionsReused will always have at least 3 items, so just ignore them here.
 		selectionsReused[i] = nil
 	end
 

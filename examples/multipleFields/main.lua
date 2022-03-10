@@ -5,7 +5,8 @@
 -- InputField instance, and a system for what text input has focus.
 --
 
-local InputField = assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))() -- require"InputField"
+local InputField = assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))()
+-- local InputField = require"InputField"
 
 local LG = love.graphics
 local LK = love.keyboard
@@ -26,18 +27,20 @@ local theFont = LG.newFont(16)
 
 local textInputs = {
 	{
-		field  = InputField("Foo, bar? Foobar!", "normal"),
-		x      = 50,
-		y      = 100,
-		width  = 120,
-		height = theFont:getHeight() + 2*FIELD_PADDING,
+		field     = InputField("Foo, bar?! Foobar...", "normal"),
+		x         = 50,
+		y         = 100,
+		width     = 140,
+		height    = theFont:getHeight() + 2*FIELD_PADDING,
+		alignment = "left",
 	},
 	{
-		field  = InputField("v3ry 53cr37", "password"),
-		x      = 50,
-		y      = 170,
-		width  = 120,
-		height = theFont:getHeight() + 2*FIELD_PADDING,
+		field     = InputField("v3rY 53Cr37", "password"),
+		x         = 50,
+		y         = 170,
+		width     = 140,
+		height    = theFont:getHeight() + 2*FIELD_PADDING,
+		alignment = "center",
 	},
 	{
 		field = InputField("Lorem ipsum dolor sit amet, consectetur adipiscing elit.\nSed do eiusmod tempor incididunt ut labore et dolore magna aliqua. "
@@ -45,10 +48,11 @@ local textInputs = {
 			.. "Adipiscing elit duis tristique sollicitudin.\nFacilisi morbi tempus iaculis urna id volutpat lacus.\nDiam quam nulla porttitor massa id neque aliquam.",
 			"multinowrap"
 		),
-		x      = 280,
-		y      = 100,
-		width  = 350,
-		height = 120,
+		x         = 280,
+		y         = 100,
+		width     = 350,
+		height    = 120,
+		alignment = "left",
 	},
 	{
 		field = InputField("Luctus accumsan tortor posuere ac ut consequat. Ultrices vitae auctor eu augue.\n"
@@ -56,10 +60,11 @@ local textInputs = {
 			.. "Elit at imperdiet dui accumsan sit amet nulla facilisi morbi. Fames ac turpis egestas integer eget aliquet nibh praesent.",
 			"multiwrap"
 		),
-		x      = 50,
-		y      = 300,
-		width  = 580,
-		height = 190,
+		x         = 50,
+		y         = 300,
+		width     = 580,
+		height    = 190,
+		alignment = "right",
 	},
 }
 
@@ -77,6 +82,7 @@ theFont:setLineHeight(FONT_LINE_HEIGHT)
 for _, textInput in ipairs(textInputs) do
 	textInput.field:setFont(theFont)
 	textInput.field:setDimensions(textInput.width-2*FIELD_PADDING, textInput.height-2*FIELD_PADDING)
+	textInput.field:setAlignment(textInput.alignment)
 end
 
 local focusedTextInput = textInputs[1] -- Nil means no focus.
@@ -93,11 +99,11 @@ local function indexOf(array, value)
 	for i = 1, #array do
 		if array[i] == value then  return i  end
 	end
-	return 0 -- Value is not in array.
+	return nil -- Value is not in array.
 end
 
-local function isInside(x,y, rectX,rectY, rectW,rectH)
-	return x >= rectX and y >= rectY and x < rectX+rectW and y < rectY+rectH
+local function isPointInsideRectangle(pointX,pointY, rectX,rectY, rectW,rectH)
+	return pointX >= rectX and pointY >= rectY and pointX < rectX+rectW and pointY < rectY+rectH
 end
 
 
@@ -108,8 +114,9 @@ function love.keypressed(key, scancode, isRepeat)
 		-- Cycle focused input.
 		local i = indexOf(textInputs, focusedTextInput)
 
-		if LK.isDown("lshift","rshift") then  i = (i-2) % #textInputs + 1      -- Backwards.
-		else                                  i =  i    % #textInputs + 1  end -- Forwards.
+		if     not i                        then  i = 1
+		elseif LK.isDown("lshift","rshift") then  i = (i-2) % #textInputs + 1      -- Backwards.
+		else                                      i =  i    % #textInputs + 1  end -- Forwards.
 
 		focusedTextInput = textInputs[i]
 
@@ -144,7 +151,7 @@ function love.mousepressed(mx, my, mbutton, pressCount)
 		focusedTextInput = nil
 
 		for i, textInput in ipairs(textInputs) do
-			if isInside(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
+			if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
 				if focusedTextInput ~= textInput then
 					focusedTextInput = textInput
 					textInput.field:resetBlinking()
@@ -186,7 +193,7 @@ function love.wheelmoved(dx, dy)
 	local mx, my = love.mouse.getPosition()
 
 	for i, textInput in ipairs(textInputs) do
-		if isInside(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
+		if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
 			textInput.field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
 			break
 		end
@@ -219,7 +226,7 @@ function love.draw()
 		local hasFocus = (textInput == focusedTextInput)
 
 		-- Field info.
-		local text = i .. ", " .. field:getType()
+		local text = i .. ", " .. field:getType() .. ", align=" .. field:getAlignment()
 		local y    = textInput.y - 3 - extraFont:getHeight()
 		LG.setFont(extraFont)
 		LG.setColor(1, 1, 1, .5)
