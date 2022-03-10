@@ -264,30 +264,23 @@ function love.draw()
 		--
 		-- Scrollbars.
 		--
-		local textWidth,  textHeight = field:getTextDimensions()
-		local scrollX,    scrollY    = field:getScroll()
-		local maxScrollX, maxScrollY = field:getScrollLimits()
+		local canScrollX, canScrollY                 = field:canScroll()
+		local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
 
-		local contentWidth  = textWidth  + 2*FIELD_PADDING
-		local contentHeight = textHeight + 2*FIELD_PADDING
-
-		local amountVisibleX = math.min(textInput.width  / contentWidth,  1)
-		local amountVisibleY = math.min(textInput.height / contentHeight, 1)
-
-		local barWidth  = amountVisibleX * textInput.width
-		local barHeight = amountVisibleY * textInput.height
-		local barX      = (maxScrollX == 0) and 0 or (scrollX / maxScrollX) * (textInput.width  - barWidth)
-		local barY      = (maxScrollY == 0) and 0 or (scrollY / maxScrollY) * (textInput.height - barHeight)
+		local hHandleLength = hCoverage * textInput.width
+		local vHandleLength = vCoverage * textInput.height
+		local hHandlePos    = hOffset   * textInput.width
+		local vHandlePos    = vOffset   * textInput.height
 
 		-- Backgrounds.
 		LG.setColor(0, 0, 0, .3)
-		if maxScrollY > 0 then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y,  SCROLLBAR_WIDTH, textInput.height)  end -- Vertical scrollbar.
-		if maxScrollX > 0 then  LG.rectangle("fill", textInput.x, textInput.y+textInput.height, textInput.width, SCROLLBAR_WIDTH )  end -- Horizontal scrollbar.
+		if canScrollY then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y,  SCROLLBAR_WIDTH, textInput.height)  end -- Vertical scrollbar.
+		if canScrollX then  LG.rectangle("fill", textInput.x, textInput.y+textInput.height, textInput.width, SCROLLBAR_WIDTH )  end -- Horizontal scrollbar.
 
 		-- Handles.
 		LG.setColor(.7, .7, .7)
-		if maxScrollY > 0 then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y+barY,  SCROLLBAR_WIDTH, barHeight)  end -- Vertical scrollbar.
-		if maxScrollX > 0 then  LG.rectangle("fill", textInput.x+barX, textInput.y+textInput.height, barWidth, SCROLLBAR_WIDTH )  end -- Horizontal scrollbar.
+		if canScrollY then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y+vHandlePos,  SCROLLBAR_WIDTH, vHandleLength)  end -- Vertical scrollbar.
+		if canScrollX then  LG.rectangle("fill", textInput.x+hHandlePos, textInput.y+textInput.height, hHandleLength, SCROLLBAR_WIDTH)  end -- Horizontal scrollbar.
 
 		--
 		-- Focus indication outline.
@@ -300,8 +293,8 @@ function love.draw()
 			local w = textInput.width  + lineWidth
 			local h = textInput.height + lineWidth
 
-			if maxScrollY > 0 then  w = w + SCROLLBAR_WIDTH  end
-			if maxScrollX > 0 then  h = h + SCROLLBAR_WIDTH  end
+			if canScrollY then  w = w + SCROLLBAR_WIDTH  end
+			if canScrollX then  h = h + SCROLLBAR_WIDTH  end
 
 			LG.setColor(1, 1, 0, .4)
 			LG.setLineWidth(lineWidth)

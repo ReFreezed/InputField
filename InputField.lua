@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.1 - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.1-dev - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -34,6 +34,7 @@
 	keypressed, textinput
 
 	-- Other:
+	canScroll, canScrollX, canScrollY
 	clearHistory
 	eachVisibleLine, eachSelection, eachSelectionOptimized
 	getBlinkPhase, resetBlinking
@@ -41,6 +42,7 @@
 	getCursorLayout
 	getMaxHistory, setMaxHistory
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll
+	getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 	getScrollLimits
 	getSelection, setSelection, selectAll, getSelectedText, getSelectedVisibleText
 	getText, setText, getVisibleText, insert
@@ -120,7 +122,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.1.0",
+	_VERSION = "InputField 3.1.0-dev",
 }
 
 
@@ -1194,6 +1196,54 @@ function InputField.setMaxHistory(field, maxHistory)
 
 	field:clearHistory()
 	field.editHistoryMax = maxHistory
+end
+
+
+
+-- horizontally, vertically = field:canScroll( )
+function InputField.canScroll(field)
+	return field:canScrollX(), field:canScrollY()
+end
+
+-- horizontally = field:canScrollX( )
+function InputField.canScrollX(field)
+	return field.type ~= "multiwrap"
+end
+
+-- vertically = field:canScrollY( )
+function InputField.canScrollY(field)
+	return field.type == "multiwrap" or field.type == "multinowrap"
+end
+
+
+
+-- horizontalOffset, horizontalCoverage, verticalOffset, verticalCoverage = field:getScrollHandles( )
+-- Values are between 0 and 1.
+function InputField.getScrollHandles(field)
+	local textW,      textH      = field:getTextDimensions()
+	local scrollX,    scrollY    = field:getScroll()
+	local maxScrollX, maxScrollY = field:getScrollLimits()
+
+	local hCoverage = math.min(field.width  / textW, 1)
+	local vCoverage = math.min(field.height / textH, 1)
+	local hOffset   = (maxScrollX == 0) and 0 or (scrollX / maxScrollX) * (1 - hCoverage)
+	local vOffset   = (maxScrollY == 0) and 0 or (scrollY / maxScrollY) * (1 - vCoverage)
+
+	return hOffset, hCoverage, vOffset, vCoverage
+end
+
+-- offset, coverage = field:getScrollHandleHorizontal( )
+-- Values are between 0 and 1.
+function InputField.getScrollHandleHorizontal(field)
+	local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
+	return hOffset, hCoverage
+end
+
+-- offset, coverage = field:getScrollHandleVertical( )
+-- Values are between 0 and 1.
+function InputField.getScrollHandleVertical(field)
+	local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
+	return vOffset, vCoverage
 end
 
 

@@ -119,20 +119,12 @@ function love.draw()
 	--
 	-- Scrollbars.
 	--
-	local textWidth,  textHeight = field:getTextDimensions()
-	local scrollX,    scrollY    = field:getScroll()
-	local maxScrollX, maxScrollY = field:getScrollLimits()
+	local horiOffset, horiCoverage, vertOffset, vertCoverage = field:getScrollHandles()
 
-	local contentWidth  = textWidth  + 2*FIELD_PADDING
-	local contentHeight = textHeight + 2*FIELD_PADDING
-
-	local amountVisibleX = math.min(FIELD_OUTER_WIDTH  / contentWidth,  1)
-	local amountVisibleY = math.min(FIELD_OUTER_HEIGHT / contentHeight, 1)
-
-	local barWidth  = amountVisibleX * FIELD_OUTER_WIDTH
-	local barHeight = amountVisibleY * FIELD_OUTER_HEIGHT
-	local barX      = (maxScrollX == 0) and 0 or (scrollX / maxScrollX) * (FIELD_OUTER_WIDTH  - barWidth)
-	local barY      = (maxScrollY == 0) and 0 or (scrollY / maxScrollY) * (FIELD_OUTER_HEIGHT - barHeight)
+	local horiHandleLength = horiCoverage * FIELD_OUTER_WIDTH
+	local vertHandleLength = vertCoverage * FIELD_OUTER_HEIGHT
+	local horiHandlePos    = horiOffset   * FIELD_OUTER_WIDTH
+	local vertHandlePos    = vertOffset   * FIELD_OUTER_HEIGHT
 
 	-- Backgrounds.
 	LG.setColor(0, 0, 0, .3)
@@ -141,8 +133,8 @@ function love.draw()
 
 	-- Handles.
 	LG.setColor(.7, .7, .7)
-	LG.rectangle("fill", FIELD_OUTER_X+FIELD_OUTER_WIDTH, FIELD_OUTER_Y+barY,  SCROLLBAR_WIDTH, barHeight) -- Vertical scrollbar.
-	LG.rectangle("fill", FIELD_OUTER_X+barX, FIELD_OUTER_Y+FIELD_OUTER_HEIGHT, barWidth, SCROLLBAR_WIDTH ) -- Horizontal scrollbar.
+	LG.rectangle("fill", FIELD_OUTER_X+FIELD_OUTER_WIDTH, FIELD_OUTER_Y+vertHandlePos,  SCROLLBAR_WIDTH, vertHandleLength) -- Vertical scrollbar.
+	LG.rectangle("fill", FIELD_OUTER_X+horiHandlePos, FIELD_OUTER_Y+FIELD_OUTER_HEIGHT, horiHandleLength, SCROLLBAR_WIDTH) -- Horizontal scrollbar.
 
 	--
 	-- Stats.
