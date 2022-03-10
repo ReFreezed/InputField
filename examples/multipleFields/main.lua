@@ -4,9 +4,9 @@
 -- This example has an array of "text inputs" objects, each with its own
 -- InputField instance, and a system for what text input has focus.
 --
+require"setup"
 
-local InputField = assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))()
--- local InputField = require"InputField"
+local InputField = require"InputField"
 
 local LG = love.graphics
 local LK = love.keyboard
@@ -73,8 +73,6 @@ local textInputs = {
 --
 -- Setup.
 --
-
-require"setup"
 
 LK.setKeyRepeat(true)
 theFont:setLineHeight(FONT_LINE_HEIGHT)

@@ -13,3 +13,7 @@ if love.getVersion() < 11 then
 		_setColor(r*255, g*255, b*255, (a and a*255))
 	end
 end
+
+package.preload.InputField = function()
+	return assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))()
+end

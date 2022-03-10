@@ -1,6 +1,12 @@
 --
 -- InputField example program: Simple
 --
+require"setup"
+
+local InputField = require"InputField"
+local LG         = love.graphics
+
+
 
 local FONT_SIZE        = 20
 local FONT_LINE_HEIGHT = 1.3
@@ -22,19 +28,12 @@ local SCROLLBAR_WIDTH          = 5
 local BLINK_INTERVAL           = 0.90
 local MOUSE_WHEEL_SCROLL_SPEED = 10
 
-local LG = love.graphics
 
-
-
-require"setup"
 
 love.keyboard.setKeyRepeat(true)
 
 local theFont = LG.newFont(FONT_SIZE)
 theFont:setLineHeight(FONT_LINE_HEIGHT)
-
-local InputField = assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))()
--- local InputField = require"InputField"
 
 local field = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
 field:setFont(theFont)
