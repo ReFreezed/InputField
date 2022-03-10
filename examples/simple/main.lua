@@ -1,6 +1,7 @@
 --
--- InputField example program
+-- InputField example program: Simple
 --
+
 local FONT_SIZE        = 20
 local FONT_LINE_HEIGHT = 1.3
 
@@ -25,68 +26,36 @@ local LG = love.graphics
 
 
 
-if love.getVersion() < 11 then
-	local _clear    = LG.clear
-	local _setColor = LG.setColor
-
-	function LG.clear(r, g, b, a)
-		_clear((r and r*255), (g and g*255), (b and b*255), (a and a*255))
-	end
-
-	function LG.setColor(r, g, b, a)
-		_setColor(r*255, g*255, b*255, (a and a*255))
-	end
-end
-
-
-
-io.stdout:setvbuf("no")
-io.stderr:setvbuf("no")
+require"setup"
 
 love.keyboard.setKeyRepeat(true)
 
 local theFont = LG.newFont(FONT_SIZE)
 theFont:setLineHeight(FONT_LINE_HEIGHT)
 
-local InputField = require"InputField"
-local field      = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
+local InputField = assert(loadfile(love.filesystem.getSource().."/../../InputField.lua"))() -- require"InputField"
+
+local field = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
 field:setFont(theFont)
 field:setDimensions(FIELD_INNER_WIDTH, FIELD_INNER_HEIGHT)
-
-local fieldHasFocus = true -- Example how the concept of focus can be implemented.
 
 
 
 function love.keypressed(key, scancode, isRepeat)
-	-- First handle keys that override InputField's behavior.
-	if key == "tab" then
-		fieldHasFocus = not fieldHasFocus
-		field:resetBlinking()
-
-	-- Then handle InputField (if it has focus).
-	elseif fieldHasFocus and field:keypressed(key, isRepeat) then
+	if field:keypressed(key, isRepeat) then
 		-- Event was handled.
-
-	-- Lastly handle keys for when InputField doesn't have focus or the key
-	-- wasn't handled by the library.
 	elseif key == "escape" then
 		love.event.quit()
 	end
 end
 
 function love.textinput(text)
-	if fieldHasFocus then
-		field:textinput(text)
-	end
+	field:textinput(text)
 end
 
 
 
 function love.mousepressed(mx, my, mbutton, pressCount)
-	if not fieldHasFocus then
-		fieldHasFocus = true
-		field:resetBlinking()
-	end
 	field:mousepressed(mx-FIELD_INNER_X, my-FIELD_INNER_Y, mbutton, pressCount)
 end
 
@@ -110,11 +79,11 @@ end
 
 
 
-local smallFont = LG.newFont(12)
+local extraFont = LG.newFont(12)
 
 function love.draw()
-	local time = love.timer.getTime()
-	LG.clear(.2, .2, .2, 1)
+	local drawStartTime = love.timer.getTime()
+	LG.clear(.25, .25, .25, 1)
 
 	--
 	-- Input field.
@@ -126,27 +95,24 @@ function love.draw()
 	LG.rectangle("fill", FIELD_OUTER_X, FIELD_OUTER_Y, FIELD_OUTER_WIDTH, FIELD_OUTER_HEIGHT)
 
 	-- Selection.
-	if fieldHasFocus then
-		LG.setColor(.2, .2, 1)
-		for _, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection() do
-			LG.rectangle("fill", FIELD_INNER_X+selectionX, FIELD_INNER_Y+selectionY, selectionWidth, selectionHeight)
-		end
+	LG.setColor(.2, .2, 1)
+	for _, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection() do
+		LG.rectangle("fill", FIELD_INNER_X+selectionX, FIELD_INNER_Y+selectionY, selectionWidth, selectionHeight)
 	end
 
 	-- Text.
 	LG.setFont(theFont)
-	LG.setColor(1, 1, 1, (fieldHasFocus and 1 or .6))
+	LG.setColor(1, 1, 1)
 	for _, lineText, lineX, lineY in field:eachVisibleLine() do
 		LG.print(lineText, FIELD_INNER_X+lineX, FIELD_INNER_Y+lineY)
 	end
 
 	-- Cursor.
-	if fieldHasFocus then
-		local cursorWidth = 2
-		local cursorX, cursorY, cursorHeight = field:getCursorLayout()
-		LG.setColor(1, 1, 1, ((field:getBlinkPhase()/BLINK_INTERVAL)%1 < .5 and 1 or 0))
-		LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
-	end
+	local cursorWidth = 2
+	local cursorX, cursorY, cursorHeight = field:getCursorLayout()
+	local alpha = ((field:getBlinkPhase() / BLINK_INTERVAL) % 1 < .5) and 1 or 0
+	LG.setColor(1, 1, 1, alpha)
+	LG.rectangle("fill", FIELD_INNER_X+cursorX-cursorWidth/2, FIELD_INNER_Y+cursorY, cursorWidth, cursorHeight)
 
 	LG.setScissor()
 
@@ -184,12 +150,12 @@ function love.draw()
 	local text = string.format(
 		"Memory: %.2f MB\nDraw time: %.1f ms\nIs busy: %s",
 		collectgarbage"count" / 1024,
-		(love.timer.getTime()-time) * 1000,
+		(love.timer.getTime()-drawStartTime) * 1000,
 		tostring(field:isBusy())
 	)
-	LG.setFont(smallFont)
+	LG.setFont(extraFont)
 	LG.setColor(1, 1, 1, .5)
-	LG.print(text, 0, LG.getHeight()-3*smallFont:getHeight())
+	LG.print(text, 0, LG.getHeight()-3*extraFont:getHeight())
 end
 
 
