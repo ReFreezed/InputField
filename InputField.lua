@@ -35,7 +35,7 @@
 	keypressed, textinput
 
 	-- Other:
-	canScroll, canScrollX, canScrollY
+	canScroll, canScrollHorizontally, canScrollVertically
 	clearHistory
 	eachVisibleLine, eachSelection, eachSelectionOptimized
 	getBlinkPhase, resetBlinking
@@ -1235,16 +1235,16 @@ end
 
 -- horizontally, vertically = field:canScroll( )
 function InputField.canScroll(field)
-	return field:canScrollX(), field:canScrollY()
+	return field:canScrollHorizontally(), field:canScrollVertically()
 end
 
--- horizontally = field:canScrollX( )
-function InputField.canScrollX(field)
+-- horizontally = field:canScrollHorizontally( )
+function InputField.canScrollHorizontally(field)
 	return field.type ~= "multiwrap"
 end
 
--- vertically = field:canScrollY( )
-function InputField.canScrollY(field)
+-- vertically = field:canScrollVertically( )
+function InputField.canScrollVertically(field)
 	return field.type == "multiwrap" or field.type == "multinowrap"
 end
 

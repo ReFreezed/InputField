@@ -271,7 +271,7 @@ function love.draw()
 		--
 		-- Scrollbars.
 		--
-		local canScrollX, canScrollY                 = field:canScroll()
+		local canScrollH, canScrollV                 = field:canScroll()
 		local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
 
 		local hHandleLength = hCoverage * textInput.width
@@ -281,13 +281,13 @@ function love.draw()
 
 		-- Backgrounds.
 		LG.setColor(0, 0, 0, .3)
-		if canScrollY then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y,  SCROLLBAR_WIDTH, textInput.height)  end -- Vertical scrollbar.
-		if canScrollX then  LG.rectangle("fill", textInput.x, textInput.y+textInput.height, textInput.width, SCROLLBAR_WIDTH )  end -- Horizontal scrollbar.
+		if canScrollV then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y,  SCROLLBAR_WIDTH, textInput.height)  end -- Vertical scrollbar.
+		if canScrollH then  LG.rectangle("fill", textInput.x, textInput.y+textInput.height, textInput.width, SCROLLBAR_WIDTH )  end -- Horizontal scrollbar.
 
 		-- Handles.
 		LG.setColor(.7, .7, .7)
-		if canScrollY then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y+vHandlePos,  SCROLLBAR_WIDTH, vHandleLength)  end -- Vertical scrollbar.
-		if canScrollX then  LG.rectangle("fill", textInput.x+hHandlePos, textInput.y+textInput.height, hHandleLength, SCROLLBAR_WIDTH)  end -- Horizontal scrollbar.
+		if canScrollV then  LG.rectangle("fill", textInput.x+textInput.width, textInput.y+vHandlePos,  SCROLLBAR_WIDTH, vHandleLength)  end -- Vertical scrollbar.
+		if canScrollH then  LG.rectangle("fill", textInput.x+hHandlePos, textInput.y+textInput.height, hHandleLength, SCROLLBAR_WIDTH)  end -- Horizontal scrollbar.
 
 		--
 		-- Focus indication outline.
@@ -300,8 +300,8 @@ function love.draw()
 			local w = textInput.width  + lineWidth
 			local h = textInput.height + lineWidth
 
-			if canScrollY then  w = w + SCROLLBAR_WIDTH  end
-			if canScrollX then  h = h + SCROLLBAR_WIDTH  end
+			if canScrollV then  w = w + SCROLLBAR_WIDTH  end
+			if canScrollH then  h = h + SCROLLBAR_WIDTH  end
 
 			LG.setColor(1, 1, 0, .4)
 			LG.setLineWidth(lineWidth)
