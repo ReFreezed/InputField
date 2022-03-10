@@ -132,6 +132,8 @@ local LS   = require"love.system"
 local LT   = require"love.timer"
 local utf8 = require"utf8"
 
+local isMac = (LS.getOS() == "OS X")
+
 local InputField   = {}
 InputField.__index = InputField
 
@@ -497,11 +499,11 @@ end
 
 
 
-local LCTRL = (LS.getOS() == "OS X") and "lgui" or "lctrl"
-local RCTRL = (LS.getOS() == "OS X") and "rgui" or "rctrl"
+local LCTRL = isMac and "lgui" or "lctrl"
+local RCTRL = isMac and "rgui" or "rctrl"
 
 -- modKeys = getModKeys( )
--- modKeys = "cas" | "ca" | "cs" | "c" | "a" | "s" | ""
+-- modKeys = "cas" | "ca" | "cs" | "as" | "c" | "a" | "s" | ""
 local function getModKeys()
 	local c = LK.isDown(LCTRL,    RCTRL   )
 	local a = LK.isDown("lalt",   "ralt"  )
@@ -510,6 +512,7 @@ local function getModKeys()
 	if     c and a and s then  return "cas"
 	elseif c and a       then  return "ca"
 	elseif c and s       then  return "cs"
+	elseif a and s       then  return "as"
 	elseif c             then  return "c"
 	elseif a             then  return "a"
 	elseif s             then  return "s"
@@ -1322,7 +1325,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 		field.dragLastX          = mx
 		field.dragLastY          = my
 
-	elseif getModKeys() == "s" then
+	elseif LK.isDown("lshift","rshift") then
 		local anchorPos = (field:getAnchorSelectionSide() == "start" and field.selectionStart or field.selectionEnd)
 
 		field:setSelection(pos, anchorPos, (pos < anchorPos and "left" or "right"))
@@ -1406,7 +1409,7 @@ end
 
 
 
-local KEY_HANDLERS = { ["cas"]={}, ["ca"]={}, ["cs"]={}, ["c"]={}, ["a"]={}, ["s"]={}, [""]={} }
+local KEY_HANDLERS = { ["cas"]={}, ["ca"]={}, ["cs"]={}, ["as"]={}, ["c"]={}, ["a"]={}, ["s"]={}, [""]={} }
 
 --            Left: Move cursor to the left.
 --      Shift+Left: Move cursor to the left and preserve selection.
@@ -1504,8 +1507,8 @@ KEY_HANDLERS["cs"]["end"] = function(field, isRepeat)
 	return true, false
 end
 
-local function navigateVertically(field, dirY, anchor)
-	if not field:isMultiline() then  return false, false  end
+local function navigateByLine(field, dirY, anchor)
+	if not field:isMultiline() then  return false  end
 
 	local anchorSide = (anchor and field:getAnchorSelectionSide() or nil)
 
@@ -1514,10 +1517,10 @@ local function navigateVertically(field, dirY, anchor)
 
 	if dirY < 0 and oldLineI == 1 then
 		field:setCursor(0, anchorSide)
-		return true, false
+		return true
 	elseif dirY > 0 and oldLineI >= #field.wrappedText then
 		field:setCursor(utf8.len(field.text), anchorSide)
-		return true, false
+		return true
 	end
 
 	-- Get info about the target line.
@@ -1531,11 +1534,12 @@ local function navigateVertically(field, dirY, anchor)
 	-- Avoid some work if we're at the start of a line.
 	if oldPosOnLine == 0 or newLine == "" then
 		field:setCursor(newLinePos1-1, anchorSide)
-		return true, false
+		return true
 	end
 
-	local linePart  = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
-	local targetX   = field.font:getWidth(linePart)
+	local linePart = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
+	local targetX  = field.font:getWidth(linePart)
+
 	local posOnLine = getCursorPositionAtX(field.font, newLine, targetX)
 
 	-- Going from the end of a long line to the end of a short soft-wrapped line would put
@@ -1545,25 +1549,44 @@ local function navigateVertically(field, dirY, anchor)
 	end
 
 	field:setCursor(newLinePos1+posOnLine-1, anchorSide)
-	return true, false
+	return true
+end
+
+local function navigateByPage(field, dirY, anchor)
+	local fontH      = field.font:getHeight()
+	local lineDist   = math.ceil(fontH*field.font:getLineHeight())
+	local walkCount  = math.max(math.floor(field.height/lineDist), 1)
+	local anyHandled = false
+
+	for i = 1, walkCount do
+		local handled, _targetX = navigateByLine(field, dirY, anchor) -- @Speed @Memory
+		if not handled then  break  end
+		anyHandled = true
+	end
+
+	-- @Incomplete @UX: Preserve x better.
+	if anyHandled then  field:keypressed("home", false)  end -- @Temp so the behavior is a bit more consistent.
+
+	return anyHandled
 end
 
 --         Up: Move cursor to the previous line.
 --       Down: Move cursor to the next line.
 --   Shift+Up: Move cursor to the previous line and preserve selection.
 -- Shift+Down: Move cursor to the next line and preserve selection.
-KEY_HANDLERS[""]["up"] = function(field, isRepeat)
-	return navigateVertically(field, -1, false)
-end
-KEY_HANDLERS[""]["down"] = function(field, isRepeat)
-	return navigateVertically(field, 1, false)
-end
-KEY_HANDLERS["s"]["up"] = function(field, isRepeat)
-	return navigateVertically(field, -1, true)
-end
-KEY_HANDLERS["s"]["down"] = function(field, isRepeat)
-	return navigateVertically(field, 1, true)
-end
+KEY_HANDLERS[""]["up"]    = function(field, isRepeat)  return navigateByLine(field, -1, false), false  end
+KEY_HANDLERS[""]["down"]  = function(field, isRepeat)  return navigateByLine(field,  1, false), false  end
+KEY_HANDLERS["s"]["up"]   = function(field, isRepeat)  return navigateByLine(field, -1, true ), false  end
+KEY_HANDLERS["s"]["down"] = function(field, isRepeat)  return navigateByLine(field,  1, true ), false  end
+
+--         PageUp: Move cursor to the previous page.
+--       PageDown: Move cursor to the next page.
+--   Shift+PageUp: Move cursor to the previous page and preserve selection.
+-- Shift+PageDown: Move cursor to the next page and preserve selection.
+KEY_HANDLERS[""]["pageup"]    = function(field, isRepeat)  return navigateByPage(field, -1, false), false  end
+KEY_HANDLERS[""]["pagedown"]  = function(field, isRepeat)  return navigateByPage(field,  1, false), false  end
+KEY_HANDLERS["s"]["pageup"]   = function(field, isRepeat)  return navigateByPage(field, -1, true ), false  end
+KEY_HANDLERS["s"]["pagedown"] = function(field, isRepeat)  return navigateByPage(field,  1, true ), false  end
 
 -- Return: Insert newline (if multiline).
 KEY_HANDLERS[""]["return"] = function(field, isRepeat)
