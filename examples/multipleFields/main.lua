@@ -1,7 +1,7 @@
 --
 -- InputField example program: Multiple fields
 --
--- This example has an array of "text inputs" objects, each with its own
+-- This example has an array of "text input" objects, each with its own
 -- InputField instance, and a system for what text input has focus.
 --
 require"setup"
@@ -107,7 +107,7 @@ end
 
 
 function love.keypressed(key, scancode, isRepeat)
-	-- First handle keys that override InputField's behavior.
+	-- First handle keys that override InputFields' behavior.
 	if key == "tab" then
 		-- Cycle focused input.
 		local i = indexOf(textInputs, focusedTextInput)
@@ -122,11 +122,11 @@ function love.keypressed(key, scancode, isRepeat)
 			focusedTextInput.field:resetBlinking()
 		end
 
-	-- Then handle InputField (if it has focus).
+	-- Then handle focused InputField (if there is one).
 	elseif focusedTextInput and focusedTextInput.field:keypressed(key, isRepeat) then
 		-- Event was handled.
 
-	-- Lastly handle keys for when InputField doesn't have focus or the key wasn't handled by the library.
+	-- Lastly handle keys for when no InputField has focus or the key wasn't handled by the library.
 	elseif key == "escape" then
 		love.event.quit()
 	end
