@@ -145,6 +145,29 @@ InputField.__index = InputField
 
 
 
+--[[ @Debug macOS on Windows.
+isMac         = true
+local _isDown = LK.isDown
+
+function LK.isDown(...)
+	for i = 1, select("#", ...) do
+		local key = select(i, ...)
+
+		if     key == "lgui"  then  key = "lctrl"
+		elseif key == "rgui"  then  key = "rctrl"
+		elseif key == "lctrl" then  key = "application"
+		elseif key == "rctrl" then  key = "application"
+		end
+
+		if _isDown(key) then  return true  end
+	end
+
+	return false
+end
+--]]
+
+
+
 --==============================================================
 --= Internal functions =========================================
 --==============================================================
@@ -392,7 +415,7 @@ local function updateWrap(field)
 		end
 	end
 
-	--[[ DEBUG
+	--[[ @Debug
 	print("--------------------------------")
 	for i = 1, #field.wrappedText do
 		print(i, field.softBreak[i], field.wrappedText[i])
@@ -530,11 +553,22 @@ local LCTRL = isMac and "lgui" or "lctrl"
 local RCTRL = isMac and "rgui" or "rctrl"
 
 -- modKeys = getModKeys( )
--- modKeys = "cas" | "ca" | "cs" | "as" | "c" | "a" | "s" | ""
+-- modKeys = "cas" | "ca" | "cs" | "as" | "c" | "a" | "s" | "" | "^cas" | "^ca" | "^cs" | "^as" | "^c" | "^a" | "^s" | "^"
 local function getModKeys()
 	local c = LK.isDown(LCTRL,    RCTRL   )
 	local a = LK.isDown("lalt",   "ralt"  )
 	local s = LK.isDown("lshift", "rshift")
+
+	if isMac and LK.isDown("lctrl", "rctrl") then
+		if     c and a and s then  return "^cas"
+		elseif c and a       then  return "^ca"
+		elseif c and s       then  return "^cs"
+		elseif a and s       then  return "^as"
+		elseif c             then  return "^c"
+		elseif a             then  return "^a"
+		elseif s             then  return "^s"
+		else                       return "^"  end
+	end
 
 	if     c and a and s then  return "cas"
 	elseif c and a       then  return "ca"
@@ -1468,13 +1502,7 @@ end
 
 
 
-local KEY_HANDLERS = { ["cas"]={}, ["ca"]={}, ["cs"]={}, ["as"]={}, ["c"]={}, ["a"]={}, ["s"]={}, [""]={} }
-
---            Left: Move cursor to the left.
---      Shift+Left: Move cursor to the left and preserve selection.
---       Ctrl+Left: Move cursor to the previous word.
--- Ctrl+Shift+Left: Move cursor to the previous word and preserve selection.
-KEY_HANDLERS[""]["left"] = function(field, isRepeat)
+local function action_moveCursorCharacterLeft(field, isRepeat)
 	if field.selectionStart ~= field.selectionEnd then
 		field:setCursor(field.selectionStart)
 	else
@@ -1482,24 +1510,20 @@ KEY_HANDLERS[""]["left"] = function(field, isRepeat)
 	end
 	return true, false
 end
-KEY_HANDLERS["s"]["left"] = function(field, isRepeat)
+local function action_moveCursorCharacterLeftAnchored(field, isRepeat)
 	field:moveCursor(-1, field:getAnchorSelectionSide())
 	return true, false
 end
-KEY_HANDLERS["c"]["left"] = function(field, isRepeat)
+local function action_moveCursorWordLeft(field, isRepeat)
 	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, -1))
 	return true, false
 end
-KEY_HANDLERS["cs"]["left"] = function(field, isRepeat)
+local function action_moveCursorWordLeftAnchored(field, isRepeat)
 	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, -1), field:getAnchorSelectionSide())
 	return true, false
 end
 
---            Right: Move cursor to the right.
---      Shift+Right: Move cursor to the right and preserve selection.
---       Ctrl+Right: Move cursor to the next word.
--- Ctrl+Shift+Right: Move cursor to the next word and preserve selection.
-KEY_HANDLERS[""]["right"] = function(field, isRepeat)
+local function action_moveCursorCharacterRight(field, isRepeat)
 	if field.selectionStart ~= field.selectionEnd then
 		field:setCursor(field.selectionEnd)
 	else
@@ -1507,61 +1531,53 @@ KEY_HANDLERS[""]["right"] = function(field, isRepeat)
 	end
 	return true, false
 end
-KEY_HANDLERS["s"]["right"] = function(field, isRepeat)
+local function action_moveCursorCharacterRightAnchored(field, isRepeat)
 	field:moveCursor(1, field:getAnchorSelectionSide())
 	return true, false
 end
-KEY_HANDLERS["c"]["right"] = function(field, isRepeat)
+local function action_moveCursorWordRight(field, isRepeat)
 	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, 1))
 	return true, false
 end
-KEY_HANDLERS["cs"]["right"] = function(field, isRepeat)
+local function action_moveCursorWordRightAnchored(field, isRepeat)
 	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, 1), field:getAnchorSelectionSide())
 	return true, false
 end
 
---            Home: Move cursor to line start.
---      Shift+Home: Move cursor to line start and preserve selection.
---       Ctrl+Home: Move cursor to absolute start.
--- Ctrl+Shift+Home: Move cursor to absolute start and preserve selection.
-KEY_HANDLERS[""]["home"] = function(field, isRepeat)
+local function action_moveCursorLineStart(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
 	field:setCursor(linePos1-1)
 	return true, false
 end
-KEY_HANDLERS["s"]["home"] = function(field, isRepeat)
+local function action_moveCursorLineStartAnchored(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
 	field:setCursor(linePos1-1, field:getAnchorSelectionSide())
 	return true, false
 end
-KEY_HANDLERS["c"]["home"] = function(field, isRepeat)
+local function action_moveCursorDocumentStart(field, isRepeat)
 	field:setCursor(0)
 	return true, false
 end
-KEY_HANDLERS["cs"]["home"] = function(field, isRepeat)
+local function action_moveCursorDocumentStartAnchored(field, isRepeat)
 	field:setCursor(0, field:getAnchorSelectionSide())
 	return true, false
 end
 
---            End: Move cursor to line end.
---      Shift+End: Move cursor to line end and preserve selection.
---       Ctrl+End: Move cursor to absolute end.
--- Ctrl+Shift+End: Move cursor to absolute end and preserve selection.
-KEY_HANDLERS[""]["end"] = function(field, isRepeat)
+local function action_moveCursorLineEnd(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
 	field:setCursor(linePos2)
 	return true, false
 end
-KEY_HANDLERS["s"]["end"] = function(field, isRepeat)
+local function action_moveCursorLineEndAnchored(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
 	field:setCursor(linePos2, field:getAnchorSelectionSide())
 	return true, false
 end
-KEY_HANDLERS["c"]["end"] = function(field, isRepeat)
+local function action_moveCursorDocumentEnd(field, isRepeat)
 	field:setCursor(field:getTextLength())
 	return true, false
 end
-KEY_HANDLERS["cs"]["end"] = function(field, isRepeat)
+local function action_moveCursorDocumentEndAnchored(field, isRepeat)
 	field:setCursor(field:getTextLength(), field:getAnchorSelectionSide())
 	return true, false
 end
@@ -1630,37 +1646,25 @@ local function navigateByPage(field, dirY, anchor)
 	return anyHandled
 end
 
---         Up: Move cursor to the previous line.
---       Down: Move cursor to the next line.
---   Shift+Up: Move cursor to the previous line and preserve selection.
--- Shift+Down: Move cursor to the next line and preserve selection.
-KEY_HANDLERS[""]["up"]    = function(field, isRepeat)  return navigateByLine(field, -1, false), false  end
-KEY_HANDLERS[""]["down"]  = function(field, isRepeat)  return navigateByLine(field,  1, false), false  end
-KEY_HANDLERS["s"]["up"]   = function(field, isRepeat)  return navigateByLine(field, -1, true ), false  end
-KEY_HANDLERS["s"]["down"] = function(field, isRepeat)  return navigateByLine(field,  1, true ), false  end
+local function action_moveCursorLineUp          (field, isRepeat)  return navigateByLine(field, -1, false), false  end
+local function action_moveCursorLineDown        (field, isRepeat)  return navigateByLine(field,  1, false), false  end
+local function action_moveCursorLineUpAnchored  (field, isRepeat)  return navigateByLine(field, -1, true ), false  end
+local function action_moveCursorLineDownAnchored(field, isRepeat)  return navigateByLine(field,  1, true ), false  end
 
---         PageUp: Move cursor to the previous page.
---       PageDown: Move cursor to the next page.
---   Shift+PageUp: Move cursor to the previous page and preserve selection.
--- Shift+PageDown: Move cursor to the next page and preserve selection.
-KEY_HANDLERS[""]["pageup"]    = function(field, isRepeat)  return navigateByPage(field, -1, false), false  end
-KEY_HANDLERS[""]["pagedown"]  = function(field, isRepeat)  return navigateByPage(field,  1, false), false  end
-KEY_HANDLERS["s"]["pageup"]   = function(field, isRepeat)  return navigateByPage(field, -1, true ), false  end
-KEY_HANDLERS["s"]["pagedown"] = function(field, isRepeat)  return navigateByPage(field,  1, true ), false  end
+local function action_moveCursorPageUp          (field, isRepeat)  return navigateByPage(field, -1, false), false  end
+local function action_moveCursorPageDown        (field, isRepeat)  return navigateByPage(field,  1, false), false  end
+local function action_moveCursorPageUpAnchored  (field, isRepeat)  return navigateByPage(field, -1, true ), false  end
+local function action_moveCursorPageDownAnchored(field, isRepeat)  return navigateByPage(field,  1, true ), false  end
 
--- Return: Insert newline (if multiline).
-KEY_HANDLERS[""]["return"] = function(field, isRepeat)
+local function action_insertNewline(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 	if not field:isMultiline()  then  return false, false  end
 
 	field:insert("\n")
 	return true, true
 end
-KEY_HANDLERS[""]["kpenter"] = KEY_HANDLERS[""]["return"]
 
---      Backspace: Remove selection or previous character.
--- Ctrl+Backspace: Remove selection or previous word.
-KEY_HANDLERS[""]["backspace"] = function(field, isRepeat)
+local function action_deleteCharacterLeft(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
 
@@ -1680,7 +1684,7 @@ KEY_HANDLERS[""]["backspace"] = function(field, isRepeat)
 	field:insert("")
 	return true, true
 end
-KEY_HANDLERS["c"]["backspace"] = function(field, isRepeat)
+local function action_deleteWordLeft(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
 	elseif field.selectionStart ~= field.selectionEnd then
@@ -1693,9 +1697,7 @@ KEY_HANDLERS["c"]["backspace"] = function(field, isRepeat)
 	return true, true
 end
 
---      Delete: Remove selection or next character.
--- Ctrl+Delete: Remove selection or next word.
-KEY_HANDLERS[""]["delete"] = function(field, isRepeat)
+local function action_deleteCharacterRight(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
 
@@ -1715,7 +1717,7 @@ KEY_HANDLERS[""]["delete"] = function(field, isRepeat)
 	field:insert("")
 	return true, true
 end
-KEY_HANDLERS["c"]["delete"] = function(field, isRepeat)
+local function action_deleteWordRight(field, isRepeat)
 	if not field.editingEnabled then
 		return false, false
 	elseif field.selectionStart ~= field.selectionEnd then
@@ -1728,14 +1730,12 @@ KEY_HANDLERS["c"]["delete"] = function(field, isRepeat)
 	return true, true
 end
 
--- Ctrl+A: Select all text.
-KEY_HANDLERS["c"]["a"] = function(field, isRepeat)
+local function action_selectAll(field, isRepeat)
 	field:selectAll()
 	return true, false
 end
 
--- Ctrl+C, Ctrl+Insert: Copy selected text.
-KEY_HANDLERS["c"]["c"] = function(field, isRepeat)
+local function action_copy(field, isRepeat)
 	local text = field:getSelectedVisibleText()
 
 	if text ~= "" then
@@ -1745,10 +1745,8 @@ KEY_HANDLERS["c"]["c"] = function(field, isRepeat)
 
 	return true, false
 end
-KEY_HANDLERS["c"]["insert"] = KEY_HANDLERS["c"]["c"]
 
--- Ctrl+X, Shift+Delete: Cut selected text (or copy if not editable).
-KEY_HANDLERS["c"]["x"] = function(field, isRepeat)
+local function action_cut(field, isRepeat)
 	local text = field:getSelectedVisibleText()
 	if text == "" then  return true, false  end
 
@@ -1762,10 +1760,8 @@ KEY_HANDLERS["c"]["x"] = function(field, isRepeat)
 		return true, false
 	end
 end
-KEY_HANDLERS["s"]["delete"] = KEY_HANDLERS["c"]["x"]
 
--- Ctrl+V, Shift+Insert: Paste copied text.
-KEY_HANDLERS["c"]["v"] = function(field, isRepeat)
+local function action_paste(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 
 	local text = cleanString(field, LS.getClipboardText())
@@ -1776,11 +1772,8 @@ KEY_HANDLERS["c"]["v"] = function(field, isRepeat)
 	field:resetBlinking()
 	return true, true
 end
-KEY_HANDLERS["s"]["insert"] = KEY_HANDLERS["c"]["v"]
 
--- Ctrl+Z: Undo text edit.
--- Ctrl+Shift+Z, Ctrl+Y: Redo text edit.
-KEY_HANDLERS["c"]["z"] = function(field, isRepeat)
+local function action_undo(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 
 	-- @Robustness: Filter and/or font filter could have changed after the last edit.
@@ -1788,7 +1781,7 @@ KEY_HANDLERS["c"]["z"] = function(field, isRepeat)
 
 	return true, true
 end
-KEY_HANDLERS["cs"]["z"] = function(field, isRepeat)
+local function action_redo(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 
 	-- @Robustness: Filter and/or font filter could have changed after the last edit.
@@ -1796,7 +1789,98 @@ KEY_HANDLERS["cs"]["z"] = function(field, isRepeat)
 
 	return true, true
 end
-KEY_HANDLERS["c"]["y"] = KEY_HANDLERS["cs"]["z"]
+
+
+
+local keyHandlers = {
+	[ "cas"]={}, [ "ca"]={}, [ "cs"]={}, [ "as"]={}, [ "c"]={}, [ "a"]={}, [ "s"]={}, [ ""]={},
+	["^cas"]={}, ["^ca"]={}, ["^cs"]={}, ["^as"]={}, ["^c"]={}, ["^a"]={}, ["^s"]={}, ["^"]={}, -- macOS only.
+}
+
+local function bind(system, modKeys, key, action)
+	if system == "all" or (system == "macos") == isMac then
+		keyHandlers[modKeys][key] = action
+	end
+end
+
+-- (Ctrl means Cmd and Alt means Option in macOS.)
+
+bind("all"    , ""   , "left"     , action_moveCursorCharacterLeft)
+bind("all"    , "s"  , "left"     , action_moveCursorCharacterLeftAnchored)
+bind("all"    , ""   , "right"    , action_moveCursorCharacterRight)
+bind("all"    , "s"  , "right"    , action_moveCursorCharacterRightAnchored)
+bind("macos"  , "^"  , "b"        , action_moveCursorCharacterLeft)
+bind("macos"  , "^"  , "f"        , action_moveCursorCharacterRight)
+
+bind("windows", "c"  , "left"     , action_moveCursorWordLeft)
+bind("windows", "cs" , "left"     , action_moveCursorWordLeftAnchored)
+bind("windows", "c"  , "right"    , action_moveCursorWordRight)
+bind("windows", "cs" , "right"    , action_moveCursorWordRightAnchored)
+bind("macos"  , "a"  , "left"     , action_moveCursorWordLeft)
+bind("macos"  , "as" , "left"     , action_moveCursorWordLeftAnchored)
+bind("macos"  , "a"  , "right"    , action_moveCursorWordRight)
+bind("macos"  , "as" , "right"    , action_moveCursorWordRightAnchored)
+
+bind("all"    , ""   , "home"     , action_moveCursorLineStart)
+bind("all"    , "s"  , "home"     , action_moveCursorLineStartAnchored)
+bind("all"    , ""   , "end"      , action_moveCursorLineEnd)
+bind("all"    , "s"  , "end"      , action_moveCursorLineEndAnchored)
+bind("macos"  , "c"  , "left"     , action_moveCursorLineStart)
+bind("macos"  , "cs" , "left"     , action_moveCursorLineStartAnchored)
+bind("macos"  , "c"  , "right"    , action_moveCursorLineEnd)
+bind("macos"  , "cs" , "right"    , action_moveCursorLineEndAnchored)
+
+bind("all"    , "c"  , "home"     , action_moveCursorDocumentStart)
+bind("all"    , "cs" , "home"     , action_moveCursorDocumentStartAnchored)
+bind("all"    , "c"  , "end"      , action_moveCursorDocumentEnd)
+bind("all"    , "cs" , "end"      , action_moveCursorDocumentEndAnchored)
+bind("macos"  , "c"  , "up"       , action_moveCursorDocumentStart)
+bind("macos"  , "cs" , "up"       , action_moveCursorDocumentStartAnchored)
+bind("macos"  , "c"  , "down"     , action_moveCursorDocumentEnd)
+bind("macos"  , "cs" , "down"     , action_moveCursorDocumentEndAnchored)
+
+bind("all"    , ""   , "up"       , action_moveCursorLineUp)
+bind("all"    , "s"  , "up"       , action_moveCursorLineUpAnchored)
+bind("all"    , ""   , "down"     , action_moveCursorLineDown)
+bind("all"    , "s"  , "down"     , action_moveCursorLineDownAnchored)
+
+bind("all"    , ""   , "pageup"   , action_moveCursorPageUp)
+bind("all"    , "s"  , "pageup"   , action_moveCursorPageUpAnchored)
+bind("all"    , ""   , "pagedown" , action_moveCursorPageDown)
+bind("all"    , "s"  , "pagedown" , action_moveCursorPageDownAnchored)
+
+bind("all"    , ""   , "return"   , action_insertNewline)
+bind("all"    , ""   , "kpenter"  , action_insertNewline)
+bind("macos"  , "^"  , "o"        , action_insertNewline)
+
+bind("all"    , ""   , "backspace", action_deleteCharacterLeft)
+bind("all"    , ""   , "delete"   , action_deleteCharacterRight)
+bind("macos"  , "^"  , "h"        , action_deleteCharacterLeft)
+bind("macos"  , "^"  , "d"        , action_deleteCharacterRight)
+
+bind("windows", "c"  , "backspace", action_deleteWordLeft)
+bind("windows", "c"  , "delete"   , action_deleteWordRight)
+bind("macos"  , "a"  , "backspace", action_deleteWordLeft)
+bind("macos"  , "a"  , "delete"   , action_deleteWordRight) -- Guessed macOS equivalent.  @Incomplete: Handle keyboards with no 'right-delete' key.
+
+bind("all"    , "c"  , "a"        , action_selectAll)
+
+bind("all"    , "c"  , "c"        , action_copy)
+bind("windows", "c"  , "insert"   , action_copy)
+
+bind("all"    , "c"  , "x"        , action_cut)
+bind("windows", "s"  , "delete"   , action_cut)
+
+bind("all"    , "c"  , "v"        , action_paste)
+bind("windows", "s"  , "insert"   , action_paste)
+bind("macos"  , "cas", "v"        , action_paste)
+
+bind("all"    , "c"  , "z"        , action_undo)
+bind("all"    , "cs" , "z"        , action_redo)
+bind("windows", "c"  , "y"        , action_redo)
+
+-- @Incomplete: Bind 'delete from line start'. windows=ctrl+shift+backspace
+-- @Incomplete: Bind 'delete to line end'. windows=ctrl+shift+delete
 
 
 
@@ -1809,7 +1893,7 @@ function InputField.keypressed(field, key, isRepeat)
 		return true, false
 	end
 
-	local keyHandler = KEY_HANDLERS[getModKeys()][key]
+	local keyHandler = keyHandlers[getModKeys()][key]
 
 	if keyHandler then
 		return keyHandler(field, isRepeat)
