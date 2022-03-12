@@ -107,8 +107,10 @@ end
 
 
 function love.keypressed(key, scancode, isRepeat)
+	local fieldIsBusy = (focusedTextInput ~= nil and focusedTextInput.field:isBusy())
+
 	-- First handle keys that override InputFields' behavior.
-	if key == "tab" then
+	if key == "tab" and not fieldIsBusy then
 		-- Cycle focused input.
 		local i     = indexOf(textInputs, focusedTextInput)
 		local shift = LK.isDown("lshift","rshift")
@@ -126,7 +128,7 @@ function love.keypressed(key, scancode, isRepeat)
 		-- Event was handled.
 
 	-- Lastly handle keys for when no InputField has focus or the key wasn't handled by the library.
-	elseif key == "escape" then
+	elseif key == "escape" and not fieldIsBusy then
 		love.event.quit()
 	end
 end
@@ -149,18 +151,15 @@ function love.mousepressed(mx, my, mbutton, pressCount)
 
 		for _, textInput in ipairs(textInputs) do
 			if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
-				if focusedTextInput ~= textInput then
-					focusedTextInput = textInput
-					textInput.field:resetBlinking()
-				end
+				focusedTextInput = textInput
 
 				isPressing         = true
-				pressedTextInput   = textInput
+				pressedTextInput   = focusedTextInput
 				pressedMouseButton = mbutton
 
-				local fieldX = textInput.x + FIELD_PADDING
-				local fieldY = textInput.y + FIELD_PADDING
-				textInput.field:mousepressed(mx-fieldX, my-fieldY, mbutton, pressCount)
+				local fieldX = pressedTextInput.x + FIELD_PADDING
+				local fieldY = pressedTextInput.y + FIELD_PADDING
+				pressedTextInput.field:mousepressed(mx-fieldX, my-fieldY, mbutton, pressCount)
 
 				break
 			end
@@ -292,8 +291,8 @@ function love.draw()
 		if hasFocus then
 			local lineWidth = 2
 
-			local x = textInput.x - lineWidth/2
-			local y = textInput.y - lineWidth/2
+			local x = textInput.x      - lineWidth/2
+			local y = textInput.y      - lineWidth/2
 			local w = textInput.width  + lineWidth
 			local h = textInput.height + lineWidth
 

@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.2 - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.2-dev - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -128,7 +128,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.2.0",
+	_VERSION = "InputField 3.2.0-dev",
 }
 
 
@@ -1798,18 +1798,16 @@ KEY_HANDLERS["cs"]["z"] = function(field, isRepeat)
 end
 KEY_HANDLERS["c"]["y"] = KEY_HANDLERS["cs"]["z"]
 
--- Escape while dragging: Stop dragging.
-KEY_HANDLERS[""]["escape"] = function(field, isRepeat)
-	if field.dragMode == "" then  return false, false  end
-	field:releaseMouse()
-	return true, false
-end
-
 
 
 -- eventWasHandled, textWasEdited = field:keypressed( key, isRepeat )
 function InputField.keypressed(field, key, isRepeat)
-	if field.dragMode ~= "" then  return true, false  end
+	if field.dragMode ~= "" then
+		-- Escape while dragging: Stop dragging.
+		if key == "escape" then  field:releaseMouse()  end
+
+		return true, false
+	end
 
 	local keyHandler = KEY_HANDLERS[getModKeys()][key]
 
