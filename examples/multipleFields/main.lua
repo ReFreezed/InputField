@@ -110,17 +110,16 @@ function love.keypressed(key, scancode, isRepeat)
 	-- First handle keys that override InputFields' behavior.
 	if key == "tab" then
 		-- Cycle focused input.
-		local i = indexOf(textInputs, focusedTextInput)
+		local i     = indexOf(textInputs, focusedTextInput)
+		local shift = LK.isDown("lshift","rshift")
 
-		if     not i                        then  i = 1
-		elseif LK.isDown("lshift","rshift") then  i = (i-2) % #textInputs + 1      -- Backwards.
-		else                                      i =  i    % #textInputs + 1  end -- Forwards.
+		if     not i then  i = 1
+		elseif shift then  i = (i-2) % #textInputs + 1 -- Backwards.
+		else               i =  i    % #textInputs + 1 -- Forwards.
+		end
 
 		focusedTextInput = textInputs[i]
-
-		if focusedTextInput then
-			focusedTextInput.field:resetBlinking()
-		end
+		focusedTextInput.field:resetBlinking()
 
 	-- Then handle focused InputField (if there is one).
 	elseif focusedTextInput and focusedTextInput.field:keypressed(key, isRepeat) then
@@ -148,7 +147,7 @@ function love.mousepressed(mx, my, mbutton, pressCount)
 	if not isPressing then
 		focusedTextInput = nil
 
-		for i, textInput in ipairs(textInputs) do
+		for _, textInput in ipairs(textInputs) do
 			if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
 				if focusedTextInput ~= textInput then
 					focusedTextInput = textInput
@@ -190,7 +189,7 @@ function love.wheelmoved(dx, dy)
 	-- Scroll field under mouse.
 	local mx, my = love.mouse.getPosition()
 
-	for i, textInput in ipairs(textInputs) do
+	for _, textInput in ipairs(textInputs) do
 		if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
 			textInput.field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
 			break
