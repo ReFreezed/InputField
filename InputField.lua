@@ -1546,11 +1546,17 @@ end
 
 local function action_moveCursorLineStart(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
+	if field.cursorPosition == linePos1-1 and field.softBreak[lineI-1] then
+		line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition-1)
+	end
 	field:setCursor(linePos1-1)
 	return true, false
 end
 local function action_moveCursorLineStartAnchored(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
+	if field.cursorPosition == linePos1-1 and field.softBreak[lineI-1] then
+		line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition-1)
+	end
 	field:setCursor(linePos1-1, field:getAnchorSelectionSide())
 	return true, false
 end
