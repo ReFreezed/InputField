@@ -1345,6 +1345,22 @@ end
 
 
 
+
+-- line = field:getVisibleLine( lineIndex )
+-- Returns nil if lineIndex is invalid.
+function InputField.getVisibleLine(field, lineI)
+	updateWrap(field)
+	return field.wrappedText[lineI]
+end
+
+-- count = field:getVisibleLineCount( )
+function InputField.getVisibleLineCount(field)
+	updateWrap(field)
+	return #field.wrappedText
+end
+
+
+
 ----------------------------------------------------------------
 
 
