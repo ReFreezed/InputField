@@ -20,11 +20,10 @@ local LK = love.keyboard
 -- Values.
 --
 
-local FIELD_PADDING            = 6
-local FONT_LINE_HEIGHT         = 1.3
-local SCROLLBAR_WIDTH          = 5
-local BLINK_INTERVAL           = 0.90
-local MOUSE_WHEEL_SCROLL_SPEED = 15
+local FIELD_PADDING    = 6
+local FONT_LINE_HEIGHT = 1.3
+local SCROLLBAR_WIDTH  = 5
+local BLINK_INTERVAL   = 0.90
 
 local ENABLE_CJK              = false
 local COMPOSITION_BOX_PADDING = 3
@@ -211,7 +210,7 @@ function love.wheelmoved(dx, dy)
 	local hoveredTextInput = getTextInputAtCoords(love.mouse.getPosition())
 
 	if hoveredTextInput then
-		hoveredTextInput.field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
+		hoveredTextInput.field:wheelmoved(dx, dy)
 	end
 end
 

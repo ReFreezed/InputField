@@ -24,9 +24,8 @@ local FIELD_INNER_Y      = FIELD_OUTER_Y + FIELD_PADDING
 local FIELD_INNER_WIDTH  = FIELD_OUTER_WIDTH  - 2*FIELD_PADDING
 local FIELD_INNER_HEIGHT = FIELD_OUTER_HEIGHT - 2*FIELD_PADDING
 
-local SCROLLBAR_WIDTH          = 5
-local BLINK_INTERVAL           = 0.90
-local MOUSE_WHEEL_SCROLL_SPEED = 10
+local SCROLLBAR_WIDTH = 5
+local BLINK_INTERVAL  = 0.90
 
 
 
@@ -68,7 +67,7 @@ function love.mousereleased(mx, my, mbutton, pressCount)
 end
 
 function love.wheelmoved(dx, dy)
-	field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
+	field:wheelmoved(dx, dy)
 end
 
 

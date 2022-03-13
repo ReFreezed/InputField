@@ -24,14 +24,16 @@
 	getDoubleClickMaxDelay, setDoubleClickMaxDelay
 	getFilter, setFilter
 	getFont, setFont
+	getMaxHistory, setMaxHistory
 	getMouseScrollSpeed, getMouseScrollSpeedX, getMouseScrollSpeedY, setMouseScrollSpeed, setMouseScrollSpeedX, setMouseScrollSpeedY
 	getType, setType, isPassword, isMultiline
+	getWheelScrollSpeed, getWheelScrollSpeedX, getWheelScrollSpeedY, setWheelScrollSpeed, setWheelScrollSpeedX, setWheelScrollSpeedY
 	isEditable, setEditable
 	isFontFilteringActive, setFontFilteringActive
 
 	-- Events:
 	update
-	mousepressed, mousemoved, mousereleased
+	mousepressed, mousemoved, mousereleased, wheelmoved
 	keypressed, textinput
 
 	-- Other:
@@ -42,7 +44,6 @@
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
 	getInfoAtCoords
-	getMaxHistory, setMaxHistory
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
 	getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 	getScrollLimits
@@ -107,6 +108,9 @@
 	end
 	function love.mousereleased(mx, my, mbutton)
 		field:mousereleased(mx-fieldX, my-fieldY, mbutton)
+	end
+	function love.wheelmoved(dx, dy)
+		field:wheelmoved(dx, dy)
 	end
 
 	function love.draw()
@@ -747,6 +751,9 @@ local function newInputField(text, fieldType)
 		mouseScrollSpeedX = 6.0, -- Per pixel per second.
 		mouseScrollSpeedY = 8.0,
 
+		wheelScrollSpeedX = 1.0, -- Per second. Relative to the font size.
+		wheelScrollSpeedY = 1.0,
+
 		dragMode           = "", -- "" | "character" | "word" | "line"
 		dragStartPosition1 = 0,
 		dragStartPosition2 = 0,
@@ -954,10 +961,11 @@ function InputField.getMouseScrollSpeedY(field)
 	return field.mouseScrollSpeedY
 end
 
--- field:setMouseScrollSpeed( speedX, speedY )
+-- field:setMouseScrollSpeed( speedX [, speedY=speedX ] )
 -- field:setMouseScrollSpeedX( speedX )
 -- field:setMouseScrollSpeedY( speedY )
 function InputField.setMouseScrollSpeed(field, speedX, speedY)
+	speedY                  = speedY or speedX
 	field.mouseScrollSpeedX = math.max(speedX, 0)
 	field.mouseScrollSpeedY = math.max(speedY, 0)
 end
@@ -966,6 +974,36 @@ function InputField.setMouseScrollSpeedX(field, speedX)
 end
 function InputField.setMouseScrollSpeedY(field, speedY)
 	field.mouseScrollSpeedY = math.max(speedY, 0)
+end
+
+
+
+-- speedX, speedY = field:getWheelScrollSpeed( )
+-- speedX = field:getWheelScrollSpeedX( )
+-- speedY = field:getWheelScrollSpeedY( )
+function InputField.getWheelScrollSpeed(field)
+	return field.wheelScrollSpeedX, field.wheelScrollSpeedY
+end
+function InputField.getWheelScrollSpeedX(field)
+	return field.wheelScrollSpeedX
+end
+function InputField.getWheelScrollSpeedY(field)
+	return field.wheelScrollSpeedY
+end
+
+-- field:setWheelScrollSpeed( speedX [, speedY=speedX ] )
+-- field:setWheelScrollSpeedX( speedX )
+-- field:setWheelScrollSpeedY( speedY )
+function InputField.setWheelScrollSpeed(field, speedX, speedY)
+	speedY                  = speedY or speedX
+	field.wheelScrollSpeedX = math.max(speedX, 0)
+	field.wheelScrollSpeedY = math.max(speedY, 0)
+end
+function InputField.setWheelScrollSpeedX(field, speedX)
+	field.wheelScrollSpeedX = math.max(speedX, 0)
+end
+function InputField.setWheelScrollSpeedY(field, speedY)
+	field.wheelScrollSpeedY = math.max(speedY, 0)
 end
 
 
@@ -1618,6 +1656,21 @@ function InputField.mousereleased(field, mx, my, mbutton)
 
 	field:scrollToCursor()
 	return true
+end
+
+-- eventWasHandled = field:wheelmoved( deltaX, deltaY )
+function InputField.wheelmoved(field, dx, dy)
+	if LK.isDown("lshift","rshift") then
+		dx, dy = dy, dx
+	end
+
+	local fontH = field.font:getHeight()
+	field:scroll(
+		-dx * field.wheelScrollSpeedX*fontH,
+		-dy * field.wheelScrollSpeedY*fontH
+	)
+
+	return true -- Always handle event (for now).
 end
 
 
