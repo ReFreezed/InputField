@@ -34,16 +34,16 @@ local theFont = ENABLE_CJK and LG.newFont("unifont-14.0.02.ttf", 16) or LG.newFo
 local textInputs = {
 	{
 		field     = InputField("Foo, bar?! Foobar...", "normal"),
-		x         = 50,
-		y         = 100,
+		x         = 100,
+		y         = 50,
 		width     = 140,
 		height    = theFont:getHeight() + 2*FIELD_PADDING,
 		alignment = "left",
 	},
 	{
 		field     = InputField("v3rY 53Cr37", "password"),
-		x         = 50,
-		y         = 170,
+		x         = 100,
+		y         = 120,
 		width     = 140,
 		height    = theFont:getHeight() + 2*FIELD_PADDING,
 		alignment = "center",
@@ -54,8 +54,8 @@ local textInputs = {
 			.. "Adipiscing elit duis tristique sollicitudin.\nFacilisi morbi tempus iaculis urna id volutpat lacus.\nDiam quam nulla porttitor massa id neque aliquam.",
 			"multinowrap"
 		),
-		x         = 280,
-		y         = 100,
+		x         = 330,
+		y         = 50,
 		width     = 350,
 		height    = 120,
 		alignment = "left",
@@ -66,8 +66,8 @@ local textInputs = {
 			.. "Elit at imperdiet dui accumsan sit amet nulla facilisi morbi. Fames ac turpis egestas integer eget aliquet nibh praesent.",
 			"multiwrap"
 		),
-		x         = 50,
-		y         = 300,
+		x         = 100,
+		y         = 220,
 		width     = 580,
 		height    = 190,
 		alignment = "right",
@@ -110,6 +110,15 @@ end
 
 local function isPointInsideRectangle(pointX,pointY, rectX,rectY, rectW,rectH)
 	return pointX >= rectX and pointY >= rectY and pointX < rectX+rectW and pointY < rectY+rectH
+end
+
+local function getTextInputAtCoords(x, y)
+	for textInputNumber, textInput in ipairs(textInputs) do
+		if isPointInsideRectangle(x, y, textInput.x, textInput.y, textInput.width, textInput.height) then
+			return textInput, textInputNumber
+		end
+	end
+	return nil -- No text input at coords.
 end
 
 
@@ -161,22 +170,21 @@ local pressedMouseButton = 0
 
 function love.mousepressed(mx, my, mbutton, pressCount)
 	if not isPressing then
-		focusedTextInput = nil
+		local hoveredTextInput = getTextInputAtCoords(mx, my)
 
-		for _, textInput in ipairs(textInputs) do
-			if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
-				focusedTextInput = textInput
+		if hoveredTextInput then
+			focusedTextInput = hoveredTextInput
 
-				isPressing         = true
-				pressedTextInput   = focusedTextInput
-				pressedMouseButton = mbutton
+			isPressing         = true
+			pressedTextInput   = focusedTextInput
+			pressedMouseButton = mbutton
 
-				local fieldX = pressedTextInput.x + FIELD_PADDING
-				local fieldY = pressedTextInput.y + FIELD_PADDING
-				pressedTextInput.field:mousepressed(mx-fieldX, my-fieldY, mbutton, pressCount)
+			local fieldX = pressedTextInput.x + FIELD_PADDING
+			local fieldY = pressedTextInput.y + FIELD_PADDING
+			pressedTextInput.field:mousepressed(mx-fieldX, my-fieldY, mbutton, pressCount)
 
-				break
-			end
+		else
+			focusedTextInput = nil
 		end
 	end
 end
@@ -200,13 +208,10 @@ end
 
 function love.wheelmoved(dx, dy)
 	-- Scroll field under mouse.
-	local mx, my = love.mouse.getPosition()
+	local hoveredTextInput = getTextInputAtCoords(love.mouse.getPosition())
 
-	for _, textInput in ipairs(textInputs) do
-		if isPointInsideRectangle(mx, my, textInput.x, textInput.y, textInput.width, textInput.height) then
-			textInput.field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
-			break
-		end
+	if hoveredTextInput then
+		hoveredTextInput.field:scroll(-dx*MOUSE_WHEEL_SCROLL_SPEED, -dy*MOUSE_WHEEL_SCROLL_SPEED)
 	end
 end
 
@@ -341,16 +346,49 @@ function love.draw()
 	end
 
 	--
-	-- Stats.
+	-- Stats and information.
 	--
-	local text = string.format(
-		"Memory: %.2f MB\nDraw time: %.1f ms",
-		collectgarbage"count" / 1024,
-		(love.timer.getTime()-drawStartTime) * 1000
-	)
+	local drawTime = love.timer.getTime() - drawStartTime
+
 	LG.setFont(extraFont)
 	LG.setColor(1, 1, 1, .5)
-	LG.print(text, 0, LG.getHeight()-2*extraFont:getHeight())
+
+	local hoveredTextInput, textInputNumber = getTextInputAtCoords(love.mouse.getPosition())
+
+	if hoveredTextInput then
+		local field  = hoveredTextInput.field
+		local fieldX = hoveredTextInput.x + FIELD_PADDING
+		local fieldY = hoveredTextInput.y + FIELD_PADDING
+		local mx, my = love.mouse.getPosition()
+		local info   = field:getInfoAtCoords(mx-fieldX, my-fieldY)
+		local line   = field:getVisibleLine(info.lineIndex)
+
+		local text = string.format(
+			"Field #%d, type=%s, alignment=%s\n"
+			.. "Cursor: position=%d\n"
+			.. "Selection: position=%d, length=%d\n"
+			.. "At mouse:\n"
+			.. "  Character: position=%s\n"
+			.. "  Cursor: position=%d\n"
+			.. "  Line: index=%d, position=%d, length=%d",
+			textInputNumber, field:getType(), field:getAlignment(),
+			field:getCursor(),
+			field:getSelection(), select(2, field:getSelection())-field:getSelection(),
+			(info.hasText and tostring(info.characterPosition) or "none"),
+			info.cursorPosition,
+			info.lineIndex,
+			info.linePosition, require"utf8".len(line)
+		)
+		LG.print(text, 3, LG.getHeight()-3-10*extraFont:getHeight())
+	end
+
+	local text = string.format(
+		"Memory: %.2f MB\n"
+		.. "Draw time: %.1f ms",
+		collectgarbage"count" / 1024,
+		drawTime * 1000
+	)
+	LG.print(text, 3, LG.getHeight()-3-2*extraFont:getHeight())
 end
 
 

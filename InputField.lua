@@ -41,6 +41,7 @@
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
+	getInfoAtCoords
 	getMaxHistory, setMaxHistory
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
 	getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
@@ -444,6 +445,8 @@ local function unalignOnLine(field, line, x)
 	return x - getLineAlignmentOffset(field, line)
 end
 
+-- cursorPosition, side = getCursorPositionAtX(field, line, x)
+-- side                 = -1 | 1
 local function getCursorPositionAtX(field, line, x)
 	x = unalignOnLine(field, line, x)
 
@@ -470,7 +473,7 @@ local function getCursorPositionAtX(field, line, x)
 		local linePart = line:sub(1, utf8GetEndOffset(line, pos)) -- @Memory (We could maybe use font:getKerning() in LÖVE 11.4+ to traverse one character at a time. Might be slower though.)
 
 		local dx = x - field.font:getWidth(linePart)
-		if dx == 0 then  return pos  end
+		if dx == 0 then  return pos  end -- x is exactly at the cursor's position.
 
 		local dist = math.abs(dx)
 
@@ -504,25 +507,27 @@ local function getLineStartPosition(field, targetLineI)
 	return linePos1
 end
 
+-- cursorPosition, visualLineIndex, visualLineIndexUnclamped = getCursorPositionAtCoordinates( field, x, y )
 local function getCursorPositionAtCoordinates(field, x, y)
 	updateWrap(field)
 
 	if not field:isMultiline() then
-		return getCursorPositionAtX(field, field.wrappedText[1], x)
+		return getCursorPositionAtX(field, field.wrappedText[1], x), 1, 1
 	end
 
-	local fontH     = field.font:getHeight()
-	local lineDist  = math.ceil(fontH*field.font:getLineHeight())
-	local lineSpace = lineDist - fontH
-	local lineI     = clamp(math.floor(1 + (y+lineSpace/2) / lineDist), 1, #field.wrappedText)
-	local line      = field.wrappedText[lineI]
+	local fontH          = field.font:getHeight()
+	local lineDist       = math.ceil(fontH*field.font:getLineHeight())
+	local lineSpace      = lineDist - fontH
+	local lineIUnclamped = math.floor(1 + (y+lineSpace/2) / lineDist)
+	local lineI          = clamp(lineIUnclamped, 1, #field.wrappedText)
+	local line           = field.wrappedText[lineI]
 
-	if not line then  return 0  end
+	if not line then  return 0, 0, lineIUnclamped  end
 
 	local linePos1  = getLineStartPosition(field, lineI)
 	local posOnLine = getCursorPositionAtX(field, line, x)
 
-	return linePos1 + posOnLine - 1
+	return linePos1+posOnLine-1, lineI, lineIUnclamped
 end
 
 -- line, positionOnLine, lineIndex, linePosition1, linePosition2 = getLineInfoAtPosition( field, position )
@@ -694,11 +699,10 @@ end
 
 -- InputField( [ initialText="", type:InputFieldType="normal" ] )
 local function newInputField(text, fieldType)
-	fieldType = fieldType or "normal"
-
-	if not (fieldType == "normal" or fieldType == "password" or fieldType == "multiwrap" or fieldType == "multinowrap") then
+	if not (fieldType == nil or fieldType == "normal" or fieldType == "password" or fieldType == "multiwrap" or fieldType == "multinowrap") then
 		error("[InputField] Invalid field type '"..tostring(fieldType).."'.", 2)
 	end
+	fieldType = fieldType or "normal"
 
 	local field = setmetatable({
 		type = fieldType,
@@ -1357,6 +1361,60 @@ end
 function InputField.getVisibleLineCount(field)
 	updateWrap(field)
 	return #field.wrappedText
+end
+
+
+
+--
+-- info = field:getInfoAtCoords( x, y [, info={} ] )
+--
+-- Info table fields:
+--   cursorPosition    -- integer  Cursor position.
+--   lineIndex         -- integer  Visible line index.
+--   linePosition      -- integer  Visible line start position.
+--   characterPosition -- integer  Character position. (Is set even if hasText is false.)
+--   hasText           -- boolean  Whether there's text directly at the coordinates.
+--
+-- Note: The coordinates must be relative to the field's position on the screen.
+--
+function InputField.getInfoAtCoords(field, x, y, info)
+	updateWrap(field)
+
+	info = info or {}
+
+	if field.text == "" then
+		info.cursorPosition    = 0
+		info.lineIndex         = 1
+		info.linePosition      = 1
+		info.characterPosition = 1
+		info.hasText           = false
+
+	else
+		local curPos, visualLineI, visualLineIUnclamped = getCursorPositionAtCoordinates(field, x+field.scrollX, y+field.scrollY)
+
+		local line, curPosOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, curPos)
+
+		local preText              = line:sub(1, utf8GetEndOffset(line, curPosOnLine)) -- @Speed @Memory
+		local preTextW             = field.font:getWidth(preText)
+		local charStartIsLeftOfCur = (alignOnLine(field, line, preTextW-field.scrollX) <= x)
+		local charPosOnLine        = clamp(curPosOnLine+(charStartIsLeftOfCur and 1 or 0), 1, linePos2-linePos1+1)
+
+		if lineI > visualLineI then
+			-- We're right before a soft wrap.
+			line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, curPos-1)
+			charPosOnLine                              = linePos2 - linePos1 + 1
+		end
+
+		local xInText = unalignOnLine(field, line, x+field.scrollX)
+
+		info.cursorPosition    = curPos
+		info.lineIndex         = lineI
+		info.linePosition      = linePos1
+		info.characterPosition = math.min(linePos1+charPosOnLine-1, utf8.len(field.text))
+		info.hasText           = field.wrappedText[visualLineIUnclamped] ~= nil and xInText >= 0 and xInText < field.font:getWidth(line)
+	end
+
+	return info
 end
 
 
