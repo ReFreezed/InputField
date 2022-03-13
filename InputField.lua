@@ -25,7 +25,7 @@
 	getFilter, setFilter
 	getFont, setFont
 	getMouseScrollSpeed, getMouseScrollSpeedX, getMouseScrollSpeedY, setMouseScrollSpeed, setMouseScrollSpeedX, setMouseScrollSpeedY
-	getType, isPassword, isMultiline
+	getType, setType, isPassword, isMultiline
 	isEditable, setEditable
 	isFontFilteringActive, setFontFilteringActive
 
@@ -1241,9 +1241,30 @@ function InputField.setEditable(field, state)  field.editingEnabled = state  end
 
 
 -- type:InputFieldType = field:getType( )
+function InputField.getType(field)
+	return field.type
+end
+
+-- field:setType( type:InputFieldType )
+function InputField.setType(field, fieldType)
+	if field.type == fieldType then  return  end
+
+	if not (fieldType == "normal" or fieldType == "password" or fieldType == "multiwrap" or fieldType == "multinowrap") then
+		error("[InputField] Invalid field type '"..tostring(fieldType).."'.", 2)
+	end
+
+	local wasMultiline = field:isMultiline()
+
+	field.type            = fieldType
+	field.lastWrappedText = "\0" -- Make sure wrappedText updates.
+
+	if wasMultiline and not field:isMultiline() then
+		field:reset(cleanString(field, field.text)) -- Removes newlines (including from history).
+	end
+end
+
 -- bool = field:isPassword( )
 -- bool = field:isMultiline( )
-function InputField.getType(field)      return field.type  end
 function InputField.isPassword(field)   return field.type == "password"  end
 function InputField.isMultiline(field)  return field.type == "multiwrap" or field.type == "multinowrap"  end
 
