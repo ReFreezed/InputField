@@ -355,28 +355,32 @@ function love.draw()
 	local hoveredTextInput, textInputNumber = getTextInputAtCoords(love.mouse.getPosition())
 
 	if hoveredTextInput then
-		local field  = hoveredTextInput.field
-		local fieldX = hoveredTextInput.x + FIELD_PADDING
-		local fieldY = hoveredTextInput.y + FIELD_PADDING
-		local mx, my = love.mouse.getPosition()
-		local info   = field:getInfoAtCoords(mx-fieldX, my-fieldY)
-		local line   = field:getVisibleLine(info.lineIndex)
+		local field    = hoveredTextInput.field
+		local fieldX   = hoveredTextInput.x + FIELD_PADDING
+		local fieldY   = hoveredTextInput.y + FIELD_PADDING
+		local mx, my   = love.mouse.getPosition()
+		local info     = field:getInfoAtCoords(mx-fieldX, my-fieldY)
+		local charText = "none"
+
+		if info.hasText then
+			local charInfo = field:getInfoAtCharacter(info.characterPosition)
+			charText       = string.format("position=%d, character='%s'", info.characterPosition, charInfo.character)
+		end
 
 		local text = string.format(
-			"Field #%d, type=%s, alignment=%s\n"
+			"Field #%d, type=%s, alignment=%s, busy=%s\n"
 			.. "Cursor: position=%d\n"
 			.. "Selection: position=%d, length=%d\n"
 			.. "At mouse:\n"
-			.. "  Character: position=%s\n"
 			.. "  Cursor: position=%d\n"
+			.. "  Character: %s\n"
 			.. "  Line: index=%d, position=%d, length=%d",
-			textInputNumber, field:getType(), field:getAlignment(),
+			textInputNumber, field:getType(), field:getAlignment(), (field:isBusy() and "yes" or "no"),
 			field:getCursor(),
 			field:getSelection(), select(2, field:getSelection())-field:getSelection(),
-			(info.hasText and tostring(info.characterPosition) or "none"),
 			info.cursorPosition,
-			info.lineIndex,
-			info.linePosition, require"utf8".len(line)
+			charText,
+			info.lineIndex, info.linePosition, require"utf8".len(field:getVisibleLine(info.lineIndex))
 		)
 		LG.print(text, 3, LG.getHeight()-3-10*extraFont:getHeight())
 	end

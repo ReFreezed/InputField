@@ -43,7 +43,7 @@
 	getBlinkPhase, resetBlinking
 	getCursor, setCursor, moveCursor, getCursorSelectionSide, getAnchorSelectionSide
 	getCursorLayout
-	getInfoAtCoords
+	getInfoAtCoords, getInfoAtCursor, getInfoAtCharacter
 	getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
 	getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 	getScrollLimits
@@ -1445,10 +1445,10 @@ end
 --
 -- Info table fields:
 --   cursorPosition    -- integer  Cursor position.
---   lineIndex         -- integer  Visible line index.
---   linePosition      -- integer  Visible line start position.
 --   characterPosition -- integer  Character position. (Is set even if hasText is false.)
 --   hasText           -- boolean  Whether there's text directly at the coordinates.
+--   lineIndex         -- integer  Visible line index.
+--   linePosition      -- integer  Visible line start position.
 --
 -- Note: The coordinates must be relative to the field's position on the screen.
 --
@@ -1459,10 +1459,10 @@ function InputField.getInfoAtCoords(field, x, y, info)
 
 	if field.text == "" then
 		info.cursorPosition    = 0
-		info.lineIndex         = 1
-		info.linePosition      = 1
 		info.characterPosition = 1
 		info.hasText           = false
+		info.lineIndex         = 1
+		info.linePosition      = 1
 
 	else
 		local curPos, visualLineI, visualLineIUnclamped = getCursorPositionAtCoordinates(field, x+field.scrollX, y+field.scrollY)
@@ -1483,11 +1483,104 @@ function InputField.getInfoAtCoords(field, x, y, info)
 		local xInText = unalignOnLine(field, line, x+field.scrollX)
 
 		info.cursorPosition    = curPos
-		info.lineIndex         = lineI
-		info.linePosition      = linePos1
 		info.characterPosition = math.min(linePos1+charPosOnLine-1, utf8.len(field.text))
 		info.hasText           = field.wrappedText[visualLineIUnclamped] ~= nil and xInText >= 0 and xInText < field.font:getWidth(line)
+		info.lineIndex         = lineI
+		info.linePosition      = linePos1
 	end
+
+	return info
+end
+
+--
+-- info = field:getInfoAtCursor( cursorPosition [, info={} ] )
+--
+-- Info table fields:
+--   x            -- integer  X position.
+--   y            -- integer  Y/top position.
+--   height       -- integer  Line height.
+--   lineIndex    -- integer  Visible line index.
+--   linePosition -- integer  Visible line start position.
+--
+function InputField.getInfoAtCursor(field, pos, info)
+	updateWrap(field)
+
+	info = info or {}
+
+	if field.text == "" then
+		info.x            = alignOnLine(field, "", 0)
+		info.y            = 0
+		info.height       = field.font:getHeight()
+		info.lineIndex    = 1
+		info.linePosition = 1
+
+	else
+		pos = clamp(pos, 0, utf8.len(field.text))
+
+		local line, curPosOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, pos)
+
+		local savedCursorPosition = field.cursorPosition
+		field.cursorPosition      = pos
+		local x, y, h             = field:getCursorLayout()
+		field.cursorPosition      = savedCursorPosition
+
+		info.x            = x
+		info.y            = y
+		info.height       = h
+		info.lineIndex    = lineI
+		info.linePosition = linePos1
+	end
+
+	return info
+end
+
+--
+-- info = field:getInfoAtCharacter( characterPosition [, info={} ] )
+--
+-- Info table fields:
+--   character    -- string   The character (unobfuscated if field type is "password").
+--   x            -- integer  Character x/left position.
+--   y            -- integer  Character y/top position.
+--   width        -- integer  Character width.
+--   height       -- integer  Character/line height.
+--   lineIndex    -- integer  Visible line index.
+--   linePosition -- integer  Visible line start position.
+--
+-- Returns nil if characterPosition is invalid or points at a newline.
+--
+function InputField.getInfoAtCharacter(field, pos, info)
+	updateWrap(field)
+
+	local text = field.text
+
+	if
+		text == "" or pos < 1 or pos > utf8.len(text) -- Error: Out-of-range!
+		or utf8.codepoint(text, utf8.offset(text, pos)) == 10 -- Don't return info about newlines.
+	then
+		return nil
+	end
+
+	local line, curPosOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, pos-1)
+
+	local i1          = utf8.offset(line, curPosOnLine+1)
+	local i2          = utf8GetEndOffset(line, curPosOnLine+1)
+	local visibleChar = line:sub(i1, i2)
+
+	local preText = line:sub(1, i1-1) -- @Speed @Memory
+	local x       = alignOnLine(field, line, field.font:getWidth(preText))
+
+	local fontH    = field.font:getHeight()
+	local lineDist = math.ceil(fontH*field.font:getLineHeight())
+	local y        = (lineI-1) * lineDist
+
+	info              = info or {}
+	info.character    = (field.type == "password") and text:sub(utf8.offset(text, pos), utf8GetEndOffset(text, pos)) or visibleChar
+	info.x            = x
+	info.y            = y
+	info.width        = field.font:getWidth(visibleChar)
+	info.height       = fontH
+	info.lineIndex    = lineI
+	info.linePosition = linePos1
 
 	return info
 end
