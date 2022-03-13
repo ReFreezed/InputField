@@ -4,6 +4,9 @@
 -- This example has an array of "text input" objects, each with its own
 -- InputField instance, and a system for what text input has focus.
 --
+-- We also do some simple handling of CJK text composition.
+-- (Set ENABLE_CJK to true.)
+--
 require"setup"
 
 local InputField = require"InputField"
@@ -23,7 +26,10 @@ local SCROLLBAR_WIDTH          = 5
 local BLINK_INTERVAL           = 0.90
 local MOUSE_WHEEL_SCROLL_SPEED = 15
 
-local theFont = LG.newFont(16)
+local ENABLE_CJK              = false
+local COMPOSITION_BOX_PADDING = 3
+
+local theFont = ENABLE_CJK and LG.newFont("unifont-14.0.02.ttf", 16) or LG.newFont(16)
 
 local textInputs = {
 	{
@@ -85,6 +91,8 @@ end
 
 local focusedTextInput = textInputs[1] -- Nil means no focus.
 
+local textComposition = "" -- For CJK input.
+
 
 
 --
@@ -136,6 +144,12 @@ end
 function love.textinput(text)
 	if focusedTextInput then
 		focusedTextInput.field:textinput(text)
+	end
+end
+
+if ENABLE_CJK then
+	function love.textedited(text, start, length)
+		textComposition = text
 	end
 end
 
@@ -303,6 +317,27 @@ function love.draw()
 			LG.setLineWidth(lineWidth)
 			LG.rectangle("line", x, y, w, h)
 		end
+	end
+
+	--
+	-- CJK text composition box.
+	--
+	if ENABLE_CJK and textComposition ~= "" and focusedTextInput then
+		local field   = focusedTextInput.field
+		local fieldX  = focusedTextInput.x + FIELD_PADDING
+		local fieldY  = focusedTextInput.y + FIELD_PADDING
+		local w       = field:getFont():getWidth(textComposition)
+		local x, y, h = field:getCursorLayout() -- Render the composed text near the cursor.
+
+		x = x - COMPOSITION_BOX_PADDING
+		y = y + h
+		w = w + 2*COMPOSITION_BOX_PADDING
+		h = h + 2*COMPOSITION_BOX_PADDING
+
+		LG.setColor(.2, .2, 1)
+		LG.rectangle("fill", fieldX+x, fieldY+y, w, h)
+		LG.setColor(1, 1, 1)
+		LG.print(textComposition, fieldX+x+COMPOSITION_BOX_PADDING, fieldY+y+COMPOSITION_BOX_PADDING)
 	end
 
 	--
