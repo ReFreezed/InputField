@@ -666,6 +666,8 @@ local function pushHistory(field, group)
 
 	field.editHistoryIndex = i
 	field.editHistoryGroup = group
+
+	field.navigationTargetX = nil
 end
 
 
@@ -685,6 +687,8 @@ local function applyHistoryState(field, offset)
 	field.cursorPosition = state.cursorPosition
 	field.selectionStart = state.selectionStart
 	field.selectionEnd   = state.selectionEnd
+
+	field.navigationTargetX = nil
 end
 
 -- @UX: Improve how the cursor and selection are restored on undo.
@@ -772,6 +776,8 @@ local function newInputField(text, fieldType)
 
 		alignment = "left",
 
+		navigationTargetX = nil, -- Used when navigating vertically. Nil means need recalculation.
+
 		-- These are updated by updateWrap():
 		lastWrappedText = "",
 		wrappedText     = {""}, -- []line
@@ -832,10 +838,17 @@ function InputField.setCursor(field, pos, selSideAnchor)
 	field:scrollToCursor()
 end
 
+local function setCursorPosition(field, pos, selSideAnchor, eraseNavTargetX)
+	field:setCursor(pos, selSideAnchor)
+	if eraseNavTargetX then
+		field.navigationTargetX = nil
+	end
+end
+
 -- field:moveCursor( steps [, selectionSideToAnchor:SelectionSide=none ] )
 -- 'steps' may be positive or negative.
 function InputField.moveCursor(field, steps, selSideAnchor)
-	field:setCursor(field.cursorPosition+steps, selSideAnchor)
+	setCursorPosition(field, field.cursorPosition+steps, selSideAnchor, true)
 end
 
 -- side:SelectionSide = field:getCursorSelectionSide( )
@@ -1254,6 +1267,11 @@ function InputField.reset(field, text)
 	field.cursorPosition = 0
 	field.selectionStart = 0
 	field.selectionEnd   = 0
+
+	field.clickCount               = 1
+	field.multiClickExpirationTime = 0
+
+	field.navigationTargetX = nil
 
 	field:setText(text == nil and "" or text)
 	field:clearHistory()
@@ -1685,7 +1703,7 @@ function InputField.mousepressed(field, mx, my, mbutton, pressCount)
 		field.dragLastY          = my
 
 	else
-		field:setCursor(pos)
+		setCursorPosition(field, pos, nil, true)
 
 		field.dragMode           = "character"
 		field.dragStartPosition1 = pos
@@ -1786,7 +1804,7 @@ end
 
 local function action_moveCursorCharacterLeft(field, isRepeat)
 	if field.selectionStart ~= field.selectionEnd then
-		field:setCursor(field.selectionStart)
+		setCursorPosition(field, field.selectionStart, nil, true)
 	else
 		field:moveCursor(-1)
 	end
@@ -1797,17 +1815,17 @@ local function action_moveCursorCharacterLeftAnchored(field, isRepeat)
 	return true, false
 end
 local function action_moveCursorWordLeft(field, isRepeat)
-	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, -1))
+	setCursorPosition(field, getNextWordBound(field:getVisibleText(), field.cursorPosition, -1), nil, true)
 	return true, false
 end
 local function action_moveCursorWordLeftAnchored(field, isRepeat)
-	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, -1), field:getAnchorSelectionSide())
+	setCursorPosition(field, getNextWordBound(field:getVisibleText(), field.cursorPosition, -1), field:getAnchorSelectionSide(), true)
 	return true, false
 end
 
 local function action_moveCursorCharacterRight(field, isRepeat)
 	if field.selectionStart ~= field.selectionEnd then
-		field:setCursor(field.selectionEnd)
+		setCursorPosition(field, field.selectionEnd, nil, true)
 	else
 		field:moveCursor(1)
 	end
@@ -1818,11 +1836,11 @@ local function action_moveCursorCharacterRightAnchored(field, isRepeat)
 	return true, false
 end
 local function action_moveCursorWordRight(field, isRepeat)
-	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, 1))
+	setCursorPosition(field, getNextWordBound(field:getVisibleText(), field.cursorPosition, 1), nil, true)
 	return true, false
 end
 local function action_moveCursorWordRightAnchored(field, isRepeat)
-	field:setCursor(getNextWordBound(field:getVisibleText(), field.cursorPosition, 1), field:getAnchorSelectionSide())
+	setCursorPosition(field, getNextWordBound(field:getVisibleText(), field.cursorPosition, 1), field:getAnchorSelectionSide(), true)
 	return true, false
 end
 
@@ -1831,7 +1849,7 @@ local function action_moveCursorLineStart(field, isRepeat)
 	if field.cursorPosition == linePos1-1 and field.softBreak[lineI-1] then
 		line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition-1)
 	end
-	field:setCursor(linePos1-1)
+	setCursorPosition(field, linePos1-1, nil, true)
 	return true, false
 end
 local function action_moveCursorLineStartAnchored(field, isRepeat)
@@ -1839,51 +1857,56 @@ local function action_moveCursorLineStartAnchored(field, isRepeat)
 	if field.cursorPosition == linePos1-1 and field.softBreak[lineI-1] then
 		line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition-1)
 	end
-	field:setCursor(linePos1-1, field:getAnchorSelectionSide())
+	setCursorPosition(field, linePos1-1, field:getAnchorSelectionSide(), true)
 	return true, false
 end
 local function action_moveCursorDocumentStart(field, isRepeat)
-	field:setCursor(0)
+	setCursorPosition(field, 0, nil, true)
 	return true, false
 end
 local function action_moveCursorDocumentStartAnchored(field, isRepeat)
-	field:setCursor(0, field:getAnchorSelectionSide())
+	setCursorPosition(field, 0, field:getAnchorSelectionSide(), true)
 	return true, false
 end
 
 local function action_moveCursorLineEnd(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
-	field:setCursor(linePos2)
+	setCursorPosition(field, linePos2, nil, true)
 	return true, false
 end
 local function action_moveCursorLineEndAnchored(field, isRepeat)
 	local line, posOnLine, lineI, linePos1, linePos2 = getLineInfoAtPosition(field, field.cursorPosition)
-	field:setCursor(linePos2, field:getAnchorSelectionSide())
+	setCursorPosition(field, linePos2, field:getAnchorSelectionSide(), true)
 	return true, false
 end
 local function action_moveCursorDocumentEnd(field, isRepeat)
-	field:setCursor(field:getTextLength())
+	setCursorPosition(field, field:getTextLength(), nil, true)
 	return true, false
 end
 local function action_moveCursorDocumentEndAnchored(field, isRepeat)
-	field:setCursor(field:getTextLength(), field:getAnchorSelectionSide())
+	setCursorPosition(field, field:getTextLength(), field:getAnchorSelectionSide(), true)
 	return true, false
 end
 
-local function navigateByLine(field, dirY, anchor)
+local function navigateByLine(field, dirY, doAnchor)
 	if not field:isMultiline() then  return false  end
 
-	local anchorSide = (anchor and field:getAnchorSelectionSide() or nil)
+	local anchorSide = (doAnchor and field:getAnchorSelectionSide() or nil)
 
 	-- Get info about the current line.
 	local oldLine, oldPosOnLine, oldLineI, oldLinePos1, oldLinePos2 = getLineInfoAtPosition(field, field.cursorPosition)
 
 	if dirY < 0 and oldLineI == 1 then
-		field:setCursor(0, anchorSide)
+		-- setCursorPosition(field, 0, anchorSide, false) -- Eh, not sure it's good to navigate horizontally during vertical navigation.
 		return true
 	elseif dirY > 0 and oldLineI >= #field.wrappedText then
-		field:setCursor(utf8.len(field.text), anchorSide)
+		-- setCursorPosition(field, utf8.len(field.text), anchorSide, false)
 		return true
+	end
+
+	if not field.navigationTargetX then
+		local linePart          = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
+		field.navigationTargetX = alignOnLine(field, oldLine, field.font:getWidth(linePart))
 	end
 
 	-- Get info about the target line.
@@ -1894,42 +1917,29 @@ local function navigateByLine(field, dirY, anchor)
 		newLine, newPosOnLine, newLineI, newLinePos1, newLinePos2 = getLineInfoAtPosition(field, oldLinePos2+1)
 	end
 
-	-- Avoid some work if we're at the start of a line.
-	-- @Incomplete: Handle alignment~="left".
-	if field.alignment == "left" and (oldPosOnLine == 0 or newLine == "") then
-		field:setCursor(newLinePos1-1, anchorSide)
-		return true
-	end
-
-	local linePart = oldLine:sub(1, utf8GetEndOffset(oldLine, oldPosOnLine))
-	local targetX  = alignOnLine(field, oldLine, field.font:getWidth(linePart))
-
-	local posOnLine = getCursorPositionAtX(field, newLine, targetX)
+	local posOnLine = getCursorPositionAtX(field, newLine, field.navigationTargetX)
 
 	-- Going from the end of a long line to the end of a short soft-wrapped line would put
 	-- the cursor at the start of the previous long line or two lines down. No good!
-	if posOnLine == utf8.len(newLine) and field.softBreak[newLineI] then
+	if field.softBreak[newLineI] and posOnLine == utf8.len(newLine) then
 		posOnLine = posOnLine - 1
 	end
 
-	field:setCursor(newLinePos1+posOnLine-1, anchorSide)
+	setCursorPosition(field, newLinePos1+posOnLine-1, anchorSide, false)
 	return true
 end
 
-local function navigateByPage(field, dirY, anchor)
+local function navigateByPage(field, dirY, doAnchor)
 	local fontH      = field.font:getHeight()
 	local lineDist   = math.ceil(fontH*field.font:getLineHeight())
 	local walkCount  = math.max(math.floor(field.height/lineDist), 1)
 	local anyHandled = false
 
 	for i = 1, walkCount do
-		local handled, _targetX = navigateByLine(field, dirY, anchor) -- @Speed @Memory
+		local handled, _targetX = navigateByLine(field, dirY, doAnchor) -- @Speed @Memory
 		if not handled then  break  end
 		anyHandled = true
 	end
-
-	-- @Incomplete @UX: Preserve x better (including when navigating by line).
-	if anyHandled then  field:keypressed("home", false)  end -- @Temp so the behavior is a bit more consistent.
 
 	return anyHandled
 end
