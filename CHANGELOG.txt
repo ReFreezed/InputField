@@ -10,7 +10,7 @@ v3.3 (2022-03-15)
 - Added: Methods getWheelScrollSpeed(), setWheelScrollSpeed().
 - Changed: Better/proper shortcuts in macOS.
 - Changed: The cursor's original x position is now preserved when navigating vertically multiple lines.
-- Changed: Newlines now count as word boundries.
+- Changed: Newlines now count as word boundaries.
 - Changed: Navigating up on the first line or down on the last line now does nothing in multi-line fields.
 - Changed: The second argument for setMouseScrollSpeed() is now optional.
 - Fixed "pressing Home on wrapped lines does nothing". It now navigates to before the soft line wrap.
