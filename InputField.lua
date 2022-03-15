@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.2-dev - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.3 - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -52,6 +52,7 @@
 	getTextDimensions, getTextWidth, getTextHeight
 	getTextLength
 	getTextOffset
+	getVisibleLine, getVisibleLineCount
 	isBusy
 	releaseMouse
 	reset
@@ -133,7 +134,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.2.0-dev",
+	_VERSION = "InputField 3.3.0",
 }
 
 
@@ -974,9 +975,13 @@ function InputField.getMouseScrollSpeedY(field)
 	return field.mouseScrollSpeedY
 end
 
+--
 -- field:setMouseScrollSpeed( speedX [, speedY=speedX ] )
 -- field:setMouseScrollSpeedX( speedX )
 -- field:setMouseScrollSpeedY( speedY )
+--
+-- Also see setWheelScrollSpeed().
+--
 function InputField.setMouseScrollSpeed(field, speedX, speedY)
 	speedY                  = speedY or speedX
 	field.mouseScrollSpeedX = math.max(speedX, 0)
@@ -1413,14 +1418,14 @@ function InputField.getScrollHandles(field)
 end
 
 -- offset, coverage = field:getScrollHandleHorizontal( )
--- Values are between 0 and 1.
+-- The values (and their sum) are between 0 and 1.
 function InputField.getScrollHandleHorizontal(field)
 	local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
 	return hOffset, hCoverage
 end
 
 -- offset, coverage = field:getScrollHandleVertical( )
--- Values are between 0 and 1.
+-- The values (and their sum) are between 0 and 1.
 function InputField.getScrollHandleVertical(field)
 	local hOffset, hCoverage, vOffset, vCoverage = field:getScrollHandles()
 	return vOffset, vCoverage
@@ -1520,6 +1525,8 @@ end
 --   lineIndex    -- integer  Visible line index.
 --   linePosition -- integer  Visible line start position.
 --
+-- Note: The coordinates are relative to the field's position.
+--
 function InputField.getInfoAtCursor(field, pos, info)
 	updateWrap(field)
 
@@ -1565,6 +1572,7 @@ end
 --   linePosition -- integer  Visible line start position.
 --
 -- Returns nil if characterPosition is invalid or points at a newline.
+-- Note: The coordinates are relative to the field's position.
 --
 function InputField.getInfoAtCharacter(field, pos, info)
 	updateWrap(field)

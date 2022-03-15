@@ -187,18 +187,6 @@ do
 end
 
 do
-	local field = InputField("fo\no", "password")
-
-	assertValue(field:getType(),     "password")
-	assertValue(field:isPassword(),  true)
-	assertValue(field:isMultiline(), false)
-
-	-- Text.
-	assertValue(field:getText(),        "foo")
-	assertValue(field:getVisibleText(), "***")
-end
-
-do
 	local field = InputField("fo\no", "multiwrap")
 
 	assertValue(field:getType(),     "multiwrap")
@@ -208,6 +196,17 @@ do
 	-- Text.
 	assertValue(field:getText(),        "fo\no")
 	assertValue(field:getVisibleText(), "fo\no")
+
+	-- Type change.
+	field:setType("password")
+
+	assertValue(field:getType(),     "password")
+	assertValue(field:isPassword(),  true)
+	assertValue(field:isMultiline(), false)
+
+	-- Text.
+	assertValue(field:getText(),        "foo")
+	assertValue(field:getVisibleText(), "***")
 end
 
 do
@@ -221,12 +220,16 @@ end
 -- eachVisibleLine, eachSelection
 -- getAlignment, setAlignment
 -- getCursorLayout
+-- getInfoAtCoords, getInfoAtCursor, getInfoAtCharacter.
 -- getScroll, getScrollX, getScrollY, setScroll, setScrollX, setScrollY, scroll, scrollToCursor
 -- getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical
 -- getScrollLimits
 -- getTextDimensions, getTextWidth, getTextHeight
 -- getTextOffset
+-- getVisibleLine, getVisibleLineCount.
+-- getWheelScrollSpeed, setWheelScrollSpeed.
 -- keypressed
+-- wheelmoved
 
 print("Tests completed successfully!")
 love.event.quit()

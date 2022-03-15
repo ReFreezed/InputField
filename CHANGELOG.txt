@@ -1,22 +1,38 @@
 Changelog
 InputField
 
+v3.3 (2022-03-15)
+- Added: Event method wheelmoved() (which can do horizontal scrolling).
+- Added: Triple-click-and-drag to select lines.
+- Added: Method setType().
+- Added: Methods getInfoAtCoords(), getInfoAtCursor(), getInfoAtCharacter().
+- Added: Methods getVisibleLine(), getVisibleLineCount().
+- Added: Methods getWheelScrollSpeed(), setWheelScrollSpeed().
+- Changed: Better/proper shortcuts in macOS.
+- Changed: The cursor's original x position is now preserved when navigating vertically multiple lines.
+- Changed: Newlines now count as word boundries.
+- Changed: Navigating up on the first line or down on the last line now does nothing in multi-line fields.
+- Changed: The second argument for setMouseScrollSpeed() is now optional.
+- Fixed "pressing Home on wrapped lines does nothing". It now navigates to before the soft line wrap.
+- Fixed "pressing Escape does not stop the dragging".
+
+
 v3.2 (2022-03-10)
-- Added text alignment (left/right/center).
-- Added methods: canScroll, canScrollHorizontally, canScrollVertically.
-- Added methods: getScrollHandles, getScrollHandleHorizontal, getScrollHandleVertical.
-- PageUp and PageDown work in multi-line fields.
-- Keyboard interactions are now disabled while dragging.
+- Added: Text alignment (left/right/center).
+- Added: PageUp and PageDown work in multi-line fields.
+- Added: Methods getScrollHandles(), getScrollHandleHorizontal(), getScrollHandleVertical().
+- Added: Methods canScroll(), canScrollHorizontally(), canScrollVertically().
+- Changed: Keyboard interactions are now disabled while dragging.
 
 v3.1 (2022-01-15)
-- Added double-click-and-drag to select words.
-- Added shortcut Shift+Delete to cut text.
-- Pressing Escape while dragging stops the dragging.
-- Fixed word navigation/selection not working.
-- Better Unicode support for word navigation/selection.
+- Added: Double-click-and-drag to select words.
+- Added: Shortcut Shift+Delete to cut text.
+- Changed: Pressing Escape while dragging stops the dragging.
+- Changed: Better Unicode support for word navigation/selection.
+- Fixed "word navigation/selection does not work".
 
 v3.0.1 (2022-01-14)
-- Fixed freezing issue when calling some methods on fields that never had any text.
+- Fixed: Freezing issue when calling some methods on fields that never had any text.
 
 v3.0 (2022-01-14)
 - First public release!
