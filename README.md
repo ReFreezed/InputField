@@ -56,6 +56,9 @@ end
 function love.mousereleased(mx, my, mbutton)
 	field:mousereleased(mx-fieldX, my-fieldY, mbutton)
 end
+function love.wheelmoved(dx, dy)
+	field:wheelmoved(dx, dy)
+end
 
 function love.draw()
 	love.graphics.setColor(0, 0, 1)
