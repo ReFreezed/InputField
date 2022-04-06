@@ -134,7 +134,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.3.0",
+	_VERSION = "InputField 3.3.0-dev",
 }
 
 
@@ -225,14 +225,17 @@ end
 
 
 local function cleanString(field, s)
-	s = s:gsub((field:isMultiline() and "[%z\1-\9\11-\31]+" or "[%z\1-\31]+"), "") -- Should we allow horizontal tab?
+	local isMultiline = field:isMultiline()
+	s                 = s:gsub((isMultiline and "[%z\1-\9\11-\31]+" or "[%z\1-\31]+"), "") -- Should we allow horizontal tab?
 
 	if field.fontFilteringIsActive then
 		local font      = field.font
 		local hasGlyphs = font.hasGlyphs
 
 		s = s:gsub(utf8.charpattern, function(c)
-			if not hasGlyphs(font, c) then  return ""  end
+			if not (hasGlyphs(font, c) or (c == "\n" and isMultiline)) then
+				return ""
+			end
 		end)
 	end
 
