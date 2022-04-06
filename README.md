@@ -77,6 +77,6 @@ end
 ```
 
 See the [library file](https://raw.githubusercontent.com/ReFreezed/InputField/master/InputField.lua) for documentation,
-or the [examples folder](https://raw.githubusercontent.com/ReFreezed/InputField/master/main.lua) for more elaborate example programs.
+or the [examples folder](https://github.com/ReFreezed/InputField/tree/master/examples) for more elaborate example programs.
 
 
