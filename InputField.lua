@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.3 - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.3-dev - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -917,11 +917,18 @@ function InputField.setScrollY(field, scrollY)
 	limitScroll(field)
 end
 
--- field:scroll( deltaX, deltaY )
+-- scrolledX, scrolledY = field:scroll( deltaX, deltaY )
+-- Returned values are how much was actually scrolled.
 function InputField.scroll(field, dx, dy)
-	field.scrollX = field.scrollX + dx
-	field.scrollY = field.scrollY + dy
+	local oldScrollX = field.scrollX
+	local oldScrollY = field.scrollY
+	field.scrollX    = oldScrollX + dx
+	field.scrollY    = oldScrollY + dy
+
 	limitScroll(field)
+
+	return field.scrollX - oldScrollX,
+	       field.scrollY - oldScrollY
 end
 
 -- field:scrollToCursor( )
@@ -1786,13 +1793,17 @@ function InputField.wheelmoved(field, dx, dy)
 		dx, dy = dy, dx
 	end
 
+	if not ((dx ~= 0 and field:canScrollHorizontally()) or (dy ~= 0 and field:canScrollVertically())) then
+		return false
+	end
+
 	local fontH = field.font:getHeight()
-	field:scroll(
+	local scrolledX, scrolledY = field:scroll(
 		-dx * field.wheelScrollSpeedX*fontH,
 		-dy * field.wheelScrollSpeedY*fontH
 	)
 
-	return true -- Always handle event (for now).
+	return scrolledX ~= 0 or scrolledY ~= 0
 end
 
 
