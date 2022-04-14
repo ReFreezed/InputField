@@ -697,23 +697,27 @@ end
 
 -- @UX: Improve how the cursor and selection are restored on undo.
 local function undoEdit(field)
-	if field.editHistoryIndex == 1 then  return  end
+	if field.editHistoryIndex == 1 then  return false  end
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, -1)
 
 	field:resetBlinking()
 	field:scrollToCursor()
+
+	return true
 end
 
 local function redoEdit(field)
-	if field.editHistoryIndex == #field.editHistory then  return  end
+	if field.editHistoryIndex == #field.editHistory then  return false  end
 
 	finilizeHistoryGroup(field)
 	applyHistoryState(field, 1)
 
 	field:resetBlinking()
 	field:scrollToCursor()
+
+	return true
 end
 
 
@@ -2097,17 +2101,13 @@ local function action_undo(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 
 	-- @Robustness: Filter and/or font filter could have changed after the last edit.
-	if field.type ~= "password" then  undoEdit(field)  end
-
-	return true, true
+	return true, (field.type ~= "password" and undoEdit(field))
 end
 local function action_redo(field, isRepeat)
 	if not field.editingEnabled then  return false, false  end
 
 	-- @Robustness: Filter and/or font filter could have changed after the last edit.
-	if field.type ~= "password" then  redoEdit(field)  end
-
-	return true, true
+	return true, (field.type ~= "password" and redoEdit(field))
 end
 
 
