@@ -1,6 +1,6 @@
 --[[============================================================
 --=
---=  InputField v3.3-dev - text input handling library for LÖVE (0.10.2+)
+--=  InputField v3.3.1 - text input handling library for LÖVE (0.10.2+)
 --=  - Written by Marcus 'ReFreezed' Thunström
 --=  - MIT License (See the bottom of this file)
 --=  - https://github.com/ReFreezed/InputField
@@ -134,7 +134,7 @@
 --============================================================]]
 
 local InputField = {
-	_VERSION = "InputField 3.3.0-dev",
+	_VERSION = "InputField 3.3.1",
 }
 
 

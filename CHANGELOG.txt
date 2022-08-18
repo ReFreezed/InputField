@@ -1,6 +1,12 @@
 Changelog
 InputField
 
+v3.3.1 (2022-08-18)
+- Changed: scroll() now returns how much was actually scrolled.
+- Changed: wheelmoved() now only returns true if any scrolling actually happened.
+- Fixed "font filtering blocks newlines in multi-line fields".
+- Fixed "undo/redo counts as editing text even when nothing happened".
+
 v3.3 (2022-03-15)
 - Added: Event method wheelmoved() (which can do horizontal scrolling).
 - Added: Triple-click-and-drag to select lines.
